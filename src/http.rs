@@ -1,5 +1,5 @@
 pub mod http {
-    use log::info;
+    use log::{debug, info};
     use reqwest::blocking;
     use std::fs::File;
     use std::io::Write;
@@ -7,7 +7,7 @@ pub mod http {
 
     pub fn download_file(url: &str, dest: &Path) {
         if dest.exists() {
-            info!(
+            debug!(
                 "Not GETting URL {}, output file already exists {}",
                 url,
                 dest.to_str().unwrap(),
@@ -15,7 +15,7 @@ pub mod http {
             return;
         }
 
-        info!("GET'ing URL {}", url);
+        debug!("GET'ing URL {}", url);
 
         let response = blocking::get(url)
             .map_err(|e| format!("HTTP GET failed: {}", e))
