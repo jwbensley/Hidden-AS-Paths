@@ -1,7 +1,7 @@
 pub mod ribs {
     use crate::http::http;
     use bgpkit_broker::BgpkitBroker;
-    use log::info;
+    use log::{debug, info};
     use std::fs;
     use std::path::Path;
 
@@ -23,7 +23,7 @@ pub mod ribs {
     fn download_ribs_to_dir(dir: &str, rib_files: &Vec<RibFile>) {
         let mrt_path = Path::new(dir);
         if !mrt_path.exists() {
-            info!("Creating path: {}", mrt_path.to_str().unwrap());
+            debug!("Creating path: {}", mrt_path.to_str().unwrap());
             fs::create_dir(mrt_path).unwrap();
         }
 
