@@ -1,5 +1,5 @@
 pub mod rib_parser {
-    use crate::asp_tree::asp_trees::{Paths, Route};
+    use crate::asp_tree::asp_trees::{AsSequences, Route};
     use crate::ribs::rib_getter::RibFile;
     use bgpkit_parser::BgpkitParser;
     use bgpkit_parser::models::MrtMessage;
@@ -10,31 +10,65 @@ pub mod rib_parser {
     use ipnet::IpNet;
     use log::{debug, info};
     use std::net::{IpAddr, Ipv6Addr};
+    use std::ops::Index;
+    use std::thread;
     use std::{collections::HashMap, path::Path};
 
-    pub fn parse_ribs(dir: &str, rib_files: &Vec<RibFile>) {
-        let i = 1; /////////////////////////////////////////////////////////////////////////////
+    pub fn merge_sequences(sequences: Vec<AsSequences>) -> AsSequences {
+        debug!("Merging {} sequences", { sequences.len() });
 
-        for rib_file in rib_files {
-            let fp = Path::new(dir)
-                .join(rib_file.filename.as_str())
-                .into_os_string()
-                .into_string()
-                .unwrap();
+        if sequences.len() == 0 {
+            panic!("No sequences to merge!");
+        } else if sequences.len() == 1 {
+            sequences.pop().unwrap()
+        }
 
-            parse_rib(fp);
-
-            if i == 1 {
-                ///////////////////////////////////////////////////////////////////////////////////////////////////
-                break;
-            }
+        for chunk in sequences.chunks(2) {
+            chunk.index(0)
         }
     }
 
-    fn parse_rib(fp: String) -> Paths {
+    pub fn parse_ribs(dir: &str, rib_files: &Vec<RibFile>) {
+        debug!(
+            "Parsing {} RIB files: {:?}",
+            rib_files.len(),
+            rib_files
+                .iter()
+                .map(|x| &x.filename)
+                .collect::<Vec<&String>>()
+        );
+
+        let as_sequences = thread::scope(|s| {
+            let mut handles = Vec::new();
+
+            let mut i = 0; /////////////////////////////////////////////////////////////////////////////
+            for rib_file in rib_files {
+                if i >= 2 {
+                    ///////////////////////////////////////////////////////////////////////////////////////////////////
+                    break;
+                }
+                i += 1;
+
+                let fp = Path::new(dir)
+                    .join(rib_file.filename.as_str())
+                    .into_os_string()
+                    .into_string()
+                    .unwrap();
+
+                handles.push(s.spawn(|| parse_rib(fp)));
+            }
+
+            handles
+                .into_iter()
+                .map(|handle| handle.join().unwrap())
+                .collect::<Vec<_>>()
+        });
+    }
+
+    fn parse_rib(fp: String) -> AsSequences {
         let v4_default: IpNet = "0.0.0.0/0".parse().unwrap();
         let v6_default: IpNet = "::/0".parse().unwrap();
-        let mut paths = Paths::new();
+        let mut paths = AsSequences::new();
         let mut id_peer_map = HashMap::<u16, Peer>::new();
         let mut count = 0;
 
@@ -56,14 +90,6 @@ pub mod rib_parser {
                 debug!("{:?}\n", id_peer_map); ///////////////////////////////////////////////////////////////////////////////////////////////////
                 count += 1;
                 continue;
-            }
-
-            ///////////////////////////////////////////////////////////////////////////////////////////////////
-            if count < 104000 {
-                count += 1;
-                continue;
-            } else if count > 105000 {
-                break;
             }
 
             if let MrtMessage::TableDumpV2Message(TableDumpV2Message::RibAfi(rib_entries)) =
@@ -100,7 +126,7 @@ pub mod rib_parser {
                         })
                         .segments;
 
-                    let mut next_hop = IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 0));
+                    let mut next_hop: IpAddr = IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 0));
 
                     if rib_entry.attributes.get_reachable_nlri().is_some() {
                         let mp_nlri =
@@ -177,7 +203,7 @@ pub mod rib_parser {
                                     id_peer_map[&rib_entry.peer_index],
                                     rib_entries.prefix.prefix,
                                 );
-                                paths.insert_route_from_root(
+                                paths.insert_route_at_sequence(
                                     deduped.clone(),
                                     as_path.clone(),
                                     route,
@@ -195,7 +221,7 @@ pub mod rib_parser {
                                 id_peer_map[&rib_entry.peer_index],
                                 rib_entries.prefix.prefix,
                             );
-                            paths.insert_route_from_root(deduped, as_sequence.clone(), route);
+                            paths.insert_route_at_sequence(deduped, as_sequence.clone(), route);
                         }
                     }
                 }
@@ -207,6 +233,10 @@ pub mod rib_parser {
             }
 
             count += 1;
+            ///////////////////////////////////////////////////////////////////////////////////////////////////
+            if count >= 1000 {
+                break;
+            }
         }
 
         info!("Parsed {} records in MRT file", count);
