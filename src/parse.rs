@@ -1,125 +1,19 @@
-pub mod parse {
-    use crate::ribs::ribs::RibFile;
+pub mod rib_parser {
+    use crate::asp_tree::asp_trees::{Paths, Route};
+    use crate::ribs::rib_getter::RibFile;
     use bgpkit_parser::BgpkitParser;
-    use bgpkit_parser::models::AsPathSegment;
-    use bgpkit_parser::models::Asn;
     use bgpkit_parser::models::MrtMessage;
     use bgpkit_parser::models::Peer;
     use bgpkit_parser::models::TableDumpV2Message;
+    use bgpkit_parser::models::{AsPathSegment, Asn};
     use core::panic;
     use ipnet::IpNet;
     use log::{debug, info};
-    use std::net::IpAddr;
-    use std::str::FromStr;
+    use std::net::{IpAddr, Ipv6Addr};
     use std::{collections::HashMap, path::Path};
 
-    #[derive(Debug)]
-    struct Route {
-        aspath: Vec<Asn>,
-        aspath_deduped: Vec<Asn>,
-        filename: String,
-        next_hop: IpAddr,
-        peer: Peer,
-        prefix: IpNet,
-    }
-
-    impl PartialEq for Route {
-        fn eq(&self, other: &Self) -> bool {
-            (self.aspath == other.aspath)
-                && (self.aspath_deduped == other.aspath_deduped)
-                && (self.filename == other.filename)
-                && (self.next_hop == other.next_hop)
-                && (self.peer == other.peer)
-                && (self.prefix == other.prefix)
-        }
-    }
-
-    #[derive(Debug)]
-    struct Paths {
-        paths: HashMap<Vec<Asn>, HashMap<Vec<Asn>, Vec<Route>>>,
-    }
-
-    impl Paths {
-        pub fn new() -> Self {
-            Paths {
-                paths: HashMap::<Vec<Asn>, HashMap<Vec<Asn>, Vec<Route>>>::new(),
-            }
-        }
-
-        fn has_deduped_path(&self, deduped_path: &Vec<Asn>) -> bool {
-            debug!(
-                "Deduped AS sequence present: {}, {:?}",
-                self.paths.contains_key(deduped_path),
-                deduped_path
-            );
-            self.paths.contains_key(deduped_path)
-        }
-
-        fn insert_deduped_path(&mut self, deduped_path: Vec<Asn>) {
-            debug!("Adding deduped AS sequence: {:?}", deduped_path);
-            self.paths.insert(deduped_path, HashMap::new());
-        }
-
-        fn has_path(&self, deduped_path: &Vec<Asn>, path: &Vec<Asn>) -> bool {
-            debug!(
-                "AS sequence present in {:?}: {}, {:?}",
-                deduped_path,
-                self.paths[deduped_path].contains_key(path),
-                path
-            );
-            self.paths[deduped_path].contains_key(path)
-        }
-
-        fn insert_path(&mut self, deduped_path: &Vec<Asn>, path: Vec<Asn>) {
-            debug!("Adding AS sequence in {:?}: {:?}", deduped_path, path);
-            self.paths
-                .get_mut(deduped_path)
-                .unwrap()
-                .insert(path, Vec::new());
-        }
-
-        fn has_route(&self, deduped_path: &Vec<Asn>, path: &Vec<Asn>, route: &Route) -> bool {
-            debug!(
-                "Route sequence present in {:?}, {:?}: {}, {:?}",
-                deduped_path,
-                path,
-                self.paths[deduped_path][path].contains(route),
-                route
-            );
-            self.paths[deduped_path][path].contains(route)
-        }
-
-        fn insert_route(&mut self, deduped_path: &Vec<Asn>, path: &Vec<Asn>, route: Route) {
-            debug!(
-                "Adding route in {:?}, {:?}: {:?}",
-                deduped_path, path, route
-            );
-            self.paths
-                .get_mut(deduped_path)
-                .unwrap()
-                .get_mut(path)
-                .unwrap()
-                .push(route);
-        }
-
-        fn insert_route_from_root(&mut self, deduped_path: Vec<Asn>, path: Vec<Asn>, route: Route) {
-            if !self.has_deduped_path(&deduped_path) {
-                self.insert_deduped_path(deduped_path.clone());
-            }
-            if !self.has_path(&deduped_path, &path) {
-                self.insert_path(&deduped_path, path.clone());
-            }
-            if !self.has_route(&deduped_path, &path, &route) {
-                self.insert_route(&deduped_path, &path, route);
-            }
-        }
-    }
-
     pub fn parse_ribs(dir: &str, rib_files: &Vec<RibFile>) {
-        let mut paths = Paths::new();
-
-        let v4_default = IpNet::from_str("0.0.0.0/0").unwrap();
-        let v6_default = IpNet::from_str("::/0").unwrap();
+        let i = 1; /////////////////////////////////////////////////////////////////////////////
 
         for rib_file in rib_files {
             let fp = Path::new(dir)
@@ -128,111 +22,196 @@ pub mod parse {
                 .into_string()
                 .unwrap();
 
-            let mut id_peer_map = HashMap::<u16, Peer>::new();
-            let mut count = 0;
+            parse_rib(fp);
 
-            info!("Parsing {}", fp);
-            let parser =
-                BgpkitParser::new(fp.as_str()).expect(format!("Unable to parse {}", fp).as_str());
+            if i == 1 {
+                ///////////////////////////////////////////////////////////////////////////////////////////////////
+                break;
+            }
+        }
+    }
 
-            for elem in parser.into_record_iter() {
-                if count == 0 {
-                    if let MrtMessage::TableDumpV2Message(TableDumpV2Message::PeerIndexTable(
-                        peer_table,
-                    )) = &elem.message
-                    {
-                        id_peer_map = peer_table.id_peer_map.clone();
-                    } else {
-                        panic!("Couldn't extract peer table from table dump in {}", fp);
-                    }
+    fn parse_rib(fp: String) -> Paths {
+        let v4_default: IpNet = "0.0.0.0/0".parse().unwrap();
+        let v6_default: IpNet = "::/0".parse().unwrap();
+        let mut paths = Paths::new();
+        let mut id_peer_map = HashMap::<u16, Peer>::new();
+        let mut count = 0;
 
-                    debug!("{:?}\n", id_peer_map);
-                    count += 1;
-                    continue;
+        info!("Parsing {}", fp);
+        let parser =
+            BgpkitParser::new(fp.as_str()).unwrap_or_else(|_| panic!("Unable to parse {}", fp));
+
+        for elem in parser.into_record_iter() {
+            if count == 0 {
+                if let MrtMessage::TableDumpV2Message(TableDumpV2Message::PeerIndexTable(
+                    peer_table,
+                )) = &elem.message
+                {
+                    id_peer_map = peer_table.id_peer_map.clone();
+                } else {
+                    panic!("Couldn't extract peer table from table dump in {}", fp);
                 }
 
-                if let MrtMessage::TableDumpV2Message(TableDumpV2Message::RibAfi(rib_entries)) =
-                    &elem.message
-                {
-                    match rib_entries.rib_type {
-                        bgpkit_parser::models::TableDumpV2Type::RibIpv4Unicast
-                        | bgpkit_parser::models::TableDumpV2Type::RibIpv4UnicastAddPath => {
-                            if rib_entries.prefix.prefix == v4_default {
-                                continue;
-                            }
+                debug!("{:?}\n", id_peer_map); ///////////////////////////////////////////////////////////////////////////////////////////////////
+                count += 1;
+                continue;
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////////////
+            if count < 104000 {
+                count += 1;
+                continue;
+            } else if count > 105000 {
+                break;
+            }
+
+            if let MrtMessage::TableDumpV2Message(TableDumpV2Message::RibAfi(rib_entries)) =
+                &elem.message
+            {
+                match rib_entries.rib_type {
+                    bgpkit_parser::models::TableDumpV2Type::RibIpv4Unicast
+                    | bgpkit_parser::models::TableDumpV2Type::RibIpv4UnicastAddPath => {
+                        if rib_entries.prefix.prefix == v4_default {
+                            continue;
                         }
-                        bgpkit_parser::models::TableDumpV2Type::RibIpv6Unicast
-                        | bgpkit_parser::models::TableDumpV2Type::RibIpv6UnicastAddPath => {
-                            if rib_entries.prefix.prefix == v6_default {
-                                continue;
-                            }
-                        }
-                        _ => panic!(
-                            "Unexpected record type {:?} in file {} ({})",
-                            elem.message, fp, count
-                        ),
                     }
+                    bgpkit_parser::models::TableDumpV2Type::RibIpv6Unicast
+                    | bgpkit_parser::models::TableDumpV2Type::RibIpv6UnicastAddPath => {
+                        if rib_entries.prefix.prefix == v6_default {
+                            continue;
+                        }
+                    }
+                    _ => panic!(
+                        "Unexpected record type {:?} in file {} ({})",
+                        elem.message, fp, count
+                    ),
+                }
 
-                    for rib_entry in &rib_entries.rib_entries {
-                        let as_path_segments = &rib_entry
-                            .attributes
-                            .as_path()
-                            .expect(
-                                format!(
-                                    "Unable to unpack AS Path segments from RIB entry {:?}",
-                                    rib_entry
-                                )
-                                .as_str(),
+                for rib_entry in &rib_entries.rib_entries {
+                    let as_path_segments = &rib_entry
+                        .attributes
+                        .as_path()
+                        .unwrap_or_else(|| {
+                            panic!(
+                                "Unable to unpack AS Path segments from RIB entry {:?}",
+                                rib_entry
                             )
-                            .segments;
+                        })
+                        .segments;
 
-                        let next_hop = rib_entry.attributes.next_hop().expect(
-                            format!(
+                    let mut next_hop = IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 0));
+
+                    if rib_entry.attributes.get_reachable_nlri().is_some() {
+                        let mp_nlri =
+                            rib_entry
+                                .attributes
+                                .get_reachable_nlri()
+                                .unwrap_or_else(|| {
+                                    panic!(
+                                        "Couldn't extract MP NLRI in file {} ({}) for: {:?}",
+                                        fp, count, rib_entry
+                                    )
+                                });
+
+                        assert!(
+                            mp_nlri.is_ipv6(),
+                            "MP NLRI is used for non-IPv6 info in file {} ({}): {:?}",
+                            fp,
+                            count,
+                            rib_entry
+                        );
+
+                        next_hop = mp_nlri.next_hop_addr();
+                    } else {
+                        next_hop = rib_entry.attributes.next_hop().unwrap_or_else(|| {
+                            panic!(
                                 "No next-hop in file {} ({}) for: {:?}",
                                 fp, count, rib_entry
                             )
-                            .as_str(),
-                        );
+                        });
+                    }
 
-                        for as_path_segment in as_path_segments {
-                            if let AsPathSegment::AsSequence(as_sequence) = as_path_segment {
-                                let mut deduped = as_sequence.clone();
-                                deduped.dedup();
+                    let mut as_sequence = Vec::<Asn>::new();
+                    let mut as_set = Vec::<Asn>::new();
 
-                                let route = Route {
-                                    aspath: as_sequence.clone(),
-                                    aspath_deduped: deduped.clone(),
-                                    filename: fp.clone(),
-                                    next_hop: next_hop.clone(),
-                                    prefix: rib_entries.prefix.prefix.clone(),
-                                    peer: id_peer_map[&rib_entry.peer_index].clone(),
-                                };
-                                paths.insert_route_from_root(deduped, as_sequence.clone(), route);
+                    for as_path_segment in as_path_segments {
+                        if let AsPathSegment::AsSequence(asns) = as_path_segment {
+                            as_sequence = asns.clone();
+                        } else if let AsPathSegment::AsSet(asns) = as_path_segment {
+                            as_set = asns.clone();
+                        } else {
+                            panic!(
+                                "Couldn't extract AS path sequence in file {} ({}): {:?}",
+                                fp, count, rib_entry
+                            );
+                        }
+
+                        if as_sequence.is_empty() {
+                            if as_set.is_empty() {
+                                panic!(
+                                    "AS sequence and AS set are both undefined in file {} ({}): {:?}",
+                                    fp, count, rib_entry
+                                );
                             } else {
                                 panic!(
-                                    "Couldn't extract AS path sequence in file {} ({}): {:?}",
-                                    fp, count, as_path_segment
+                                    "AS set defined without an AS sequence in file {} ({}): {:?}",
+                                    fp, count, rib_entry
                                 );
                             }
                         }
-                    }
-                } else {
-                    panic!(
-                        "MRT record isn't of type RibAfi in file {} ({}): {:?}",
-                        fp, count, elem
-                    );
-                }
 
-                count += 1;
-                // if count >= 5 {
-                //     break;
-                // }
+                        if !as_set.is_empty() {
+                            for asn in &as_set {
+                                let mut as_path = as_sequence.clone();
+                                as_path.push(asn.to_owned());
+
+                                let mut deduped = as_path.clone();
+                                deduped.dedup();
+
+                                let route = Route::new(
+                                    as_path.clone(),
+                                    deduped.clone(),
+                                    fp.clone(),
+                                    next_hop,
+                                    id_peer_map[&rib_entry.peer_index],
+                                    rib_entries.prefix.prefix,
+                                );
+                                paths.insert_route_from_root(
+                                    deduped.clone(),
+                                    as_path.clone(),
+                                    route,
+                                );
+                            }
+                        } else {
+                            let mut deduped = as_sequence.clone();
+                            deduped.dedup();
+
+                            let route = Route::new(
+                                as_sequence.clone(),
+                                deduped.clone(),
+                                fp.clone(),
+                                next_hop,
+                                id_peer_map[&rib_entry.peer_index],
+                                rib_entries.prefix.prefix,
+                            );
+                            paths.insert_route_from_root(deduped, as_sequence.clone(), route);
+                        }
+                    }
+                }
+            } else {
+                panic!(
+                    "MRT record isn't of type RibAfi in file {} ({}): {:?}",
+                    fp, count, elem
+                );
             }
 
-            info!("Parsed {} records in MRT file", count);
-
-            break;
+            count += 1;
         }
+
+        info!("Parsed {} records in MRT file", count);
+
+        paths
     }
 }
 
@@ -270,6 +249,7 @@ MrtRecord {
     )
 }
 
+IPv4
 MrtRecord {
     common_header: CommonHeader {
         timestamp: 1758499201,
@@ -322,4 +302,21 @@ MrtRecord {
         )
     )
 }
+
+IPv6
+Attribute {
+  value: MpReachNlri(
+    Nlri {
+      afi: Ipv6,
+      safi: Unicast,
+      next_hop: Some(
+        Ipv6LinkLocal(2001:7f8:1:0:a500:32:8832:1, fe80::4201:7aff:fe41:a186)
+      ),
+      prefixes: [200:1900:5203::/56]
+    }
+  ),
+  flag: AttrFlags(OPTIONAL)
+}
+
+
  */

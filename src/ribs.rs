@@ -1,4 +1,4 @@
-pub mod ribs {
+pub mod rib_getter {
     use crate::http::http;
     use bgpkit_broker::BgpkitBroker;
     use log::{debug, info};
@@ -7,7 +7,7 @@ pub mod ribs {
 
     #[derive(Debug)]
     pub struct RibFile {
-        url: String,
+        pub url: String,
         pub filename: String,
     }
 
@@ -17,7 +17,7 @@ pub mod ribs {
          */
         let rib_files = get_rib_list_for_day(date);
         download_ribs_to_dir(dir, &rib_files);
-        return rib_files;
+        rib_files
     }
 
     fn download_ribs_to_dir(dir: &str, rib_files: &Vec<RibFile>) {
@@ -60,10 +60,10 @@ pub mod ribs {
 
             rib_files.push(RibFile {
                 url: rib.url,
-                filename: filename,
+                filename,
             });
         }
 
-        return rib_files;
+        rib_files
     }
 }
