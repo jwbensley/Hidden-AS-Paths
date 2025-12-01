@@ -10,22 +10,59 @@ pub mod rib_parser {
     use ipnet::IpNet;
     use log::{debug, info};
     use std::net::{IpAddr, Ipv6Addr};
-    use std::ops::Index;
     use std::thread;
     use std::{collections::HashMap, path::Path};
 
-    pub fn merge_sequences(sequences: Vec<AsSequences>) -> AsSequences {
-        debug!("Merging {} sequences", { sequences.len() });
+    pub fn merge_sequences(mut as_sequences: Vec<AsSequences>) -> AsSequences {
+        debug!("Merging {} sequences", as_sequences.len());
 
-        if sequences.len() == 0 {
+        if as_sequences.is_empty() {
             panic!("No sequences to merge!");
-        } else if sequences.len() == 1 {
-            sequences.pop().unwrap()
+        } else if as_sequences.len() == 1 {
+            return as_sequences.pop().unwrap();
         }
 
-        for chunk in sequences.chunks(2) {
-            chunk.index(0)
+        println!("Before:");
+        for ass in &as_sequences {
+            println!("{:?}", ass);
         }
+
+        //while as_sequences.len() > 1 {
+
+        for chunks in as_sequences.chunks_mut(2) {
+            if let [seq1, seq2] = chunks {
+                seq1.merge_from(seq2);
+            }
+        }
+
+        let to_delete = as_sequences.len() / 2; // rounds down
+        let mut deleted = 0;
+        let mut index = 0;
+
+        while deleted < to_delete {
+            for i in 0..as_sequences.len() {
+                // Up to but not including
+                if i == index {
+                    println!("Deleting: {}", index);
+                    as_sequences.remove(i);
+                    deleted += 1;
+                    index += 1;
+                    break;
+                }
+            }
+        }
+
+        println!("Remaining len: {}", as_sequences.len());
+        //}
+
+        println!("After:");
+        for ass in &as_sequences {
+            println!("{:?}", ass);
+        }
+
+        panic!("Remaining len: {}", as_sequences.len());
+
+        AsSequences::new()
     }
 
     pub fn parse_ribs(dir: &str, rib_files: &Vec<RibFile>) {
@@ -43,7 +80,7 @@ pub mod rib_parser {
 
             let mut i = 0; /////////////////////////////////////////////////////////////////////////////
             for rib_file in rib_files {
-                if i >= 2 {
+                if i >= 4 {
                     ///////////////////////////////////////////////////////////////////////////////////////////////////
                     break;
                 }
@@ -63,6 +100,8 @@ pub mod rib_parser {
                 .map(|handle| handle.join().unwrap())
                 .collect::<Vec<_>>()
         });
+
+        merge_sequences(as_sequences);
     }
 
     fn parse_rib(fp: String) -> AsSequences {
@@ -234,7 +273,7 @@ pub mod rib_parser {
 
             count += 1;
             ///////////////////////////////////////////////////////////////////////////////////////////////////
-            if count >= 1000 {
+            if count >= 1 {
                 break;
             }
         }
