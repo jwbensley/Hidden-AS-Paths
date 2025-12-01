@@ -7,7 +7,7 @@ pub mod asp_trees {
     use std::collections::hash_map::Keys;
     use std::net::IpAddr;
 
-    #[derive(Debug)]
+    #[derive(Clone, Debug)]
     pub struct Route {
         aspath: Vec<Asn>,
         aspath_deduped: Vec<Asn>,
@@ -48,6 +48,9 @@ pub mod asp_trees {
         }
     }
 
+    /*
+     * A list of routes
+     */
     #[derive(Debug)]
     pub struct AsPathRoutes {
         routes: Vec<Route>,
@@ -59,6 +62,12 @@ pub mod asp_trees {
         }
     }
 
+    impl PartialEq for AsPathRoutes {
+        fn eq(&self, other: &Self) -> bool {
+            self.routes == other.routes
+        }
+    }
+
     impl AsPathRoutes {
         pub fn new() -> Self {
             AsPathRoutes {
@@ -66,9 +75,9 @@ pub mod asp_trees {
             }
         }
 
-        // fn get_routes(&self) -> &Vec<Route> {
-        //     &self.routes
-        // }
+        fn get_routes(&self) -> &Vec<Route> {
+            &self.routes
+        }
 
         fn has_route(&self, route: &Route) -> bool {
             let present = self.routes.contains(route);
@@ -84,6 +93,9 @@ pub mod asp_trees {
         }
     }
 
+    /*
+     * A set of AS paths, each contains a set of routes
+     */
     #[derive(Debug)]
     pub struct AsPaths {
         paths: HashMap<Vec<Asn>, AsPathRoutes>,
@@ -95,6 +107,12 @@ pub mod asp_trees {
         }
     }
 
+    impl PartialEq for AsPaths {
+        fn eq(&self, other: &Self) -> bool {
+            self.paths == other.paths
+        }
+    }
+
     impl AsPaths {
         pub fn new() -> Self {
             AsPaths {
@@ -102,8 +120,12 @@ pub mod asp_trees {
             }
         }
 
-        fn get_routes_at_path(&mut self, path: &Vec<Asn>) -> &mut AsPathRoutes {
-            self.paths.get_mut(path).unwrap()
+        fn get_paths(&self) -> Keys<'_, Vec<Asn>, AsPathRoutes> {
+            self.paths.keys()
+        }
+
+        fn get_routes_at_path(&self, path: &Vec<Asn>) -> &AsPathRoutes {
+            self.paths.get(path).unwrap()
         }
 
         fn has_path(&self, path: &Vec<Asn>) -> bool {
@@ -139,7 +161,8 @@ pub mod asp_trees {
             if !self.has_path(&path) {
                 self.insert_path(path.clone());
             }
-            self.get_routes_at_path(&path).insert_route(route);
+
+            self.paths.get_mut(&path).unwrap().insert_route(route);
         }
     }
 
@@ -157,6 +180,12 @@ pub mod asp_trees {
         }
     }
 
+    impl PartialEq for AsSequences {
+        fn eq(&self, other: &Self) -> bool {
+            self.sequences == other.sequences
+        }
+    }
+
     impl AsSequences {
         pub fn new() -> Self {
             AsSequences {
@@ -164,12 +193,12 @@ pub mod asp_trees {
             }
         }
 
-        fn get_as_paths_at_sequence(&mut self, sequence: &Vec<Asn>) -> &mut AsPaths {
-            self.sequences.get_mut(sequence).unwrap()
+        fn get_as_paths_at_sequence(&self, sequence: &Vec<Asn>) -> &AsPaths {
+            self.sequences.get(sequence).unwrap()
         }
 
-        fn get_sequences(&self) -> Vec<Asn> {
-            self.sequences.keys().cloned().collect()
+        pub fn get_sequences(&self) -> Keys<'_, Vec<Asn>, AsPaths> {
+            self.sequences.keys()
         }
 
         // fn has_as_paths_at_sequence(&self, sequence: &Vec<Asn>, path: &Vec<Asn>) -> bool {
@@ -224,13 +253,27 @@ pub mod asp_trees {
                 self.insert_sequence(sequence.clone());
             }
 
-            self.get_as_paths_at_sequence(&sequence)
+            self.sequences
+                .get_mut(&sequence)
+                .unwrap()
                 .insert_route_at_path(path, route);
         }
 
         pub fn merge_from(&mut self, other: &Self) {
-            for sequence in other.get_sequences() {
-                //self.insert_sequence(sequence.clone());
+            for other_sequence in other.get_sequences() {
+                let other_as_paths = other.get_as_paths_at_sequence(other_sequence);
+
+                for other_as_path in other_as_paths.get_paths() {
+                    let other_routes = other_as_paths.get_routes_at_path(&other_as_path);
+
+                    for route in other_routes.get_routes() {
+                        self.insert_route_at_sequence(
+                            other_sequence.clone(),
+                            other_as_path.clone(),
+                            route.clone(),
+                        );
+                    }
+                }
             }
         }
     }
