@@ -13,59 +13,7 @@ pub mod rib_parser {
     use std::thread;
     use std::{collections::HashMap, path::Path};
 
-    pub fn merge_sequences(mut as_sequences: Vec<AsSequences>) -> AsSequences {
-        debug!("Merging {} sequences", as_sequences.len());
-
-        if as_sequences.is_empty() {
-            panic!("No sequences to merge!");
-        } else if as_sequences.len() == 1 {
-            return as_sequences.pop().unwrap();
-        }
-
-        println!("Before:");
-        for ass in &as_sequences {
-            println!("{:?}", ass);
-        }
-
-        //while as_sequences.len() > 1 {
-
-        for chunks in as_sequences.chunks_mut(2) {
-            if let [seq1, seq2] = chunks {
-                seq1.merge_from(seq2);
-            }
-        }
-
-        let to_delete = as_sequences.len() / 2; // rounds down
-        let mut deleted = 0;
-        let mut index = 0;
-
-        while deleted < to_delete {
-            for i in 0..as_sequences.len() {
-                // Up to but not including
-                if i == index {
-                    println!("Deleting: {}", index);
-                    as_sequences.remove(i);
-                    deleted += 1;
-                    index += 1;
-                    break;
-                }
-            }
-        }
-
-        println!("Remaining len: {}", as_sequences.len());
-        //}
-
-        println!("After:");
-        for ass in &as_sequences {
-            println!("{:?}", ass);
-        }
-
-        panic!("Remaining len: {}", as_sequences.len());
-
-        AsSequences::new()
-    }
-
-    pub fn parse_ribs(dir: &str, rib_files: &Vec<RibFile>) {
+    pub fn parse_ribs(dir: &str, rib_files: &Vec<RibFile>) -> Vec<AsSequences> {
         debug!(
             "Parsing {} RIB files: {:?}",
             rib_files.len(),
@@ -75,7 +23,7 @@ pub mod rib_parser {
                 .collect::<Vec<&String>>()
         );
 
-        let as_sequences = thread::scope(|s| {
+        thread::scope(|s| {
             let mut handles = Vec::new();
 
             let mut i = 0; /////////////////////////////////////////////////////////////////////////////
@@ -99,9 +47,7 @@ pub mod rib_parser {
                 .into_iter()
                 .map(|handle| handle.join().unwrap())
                 .collect::<Vec<_>>()
-        });
-
-        merge_sequences(as_sequences);
+        })
     }
 
     fn parse_rib(fp: String) -> AsSequences {
@@ -126,7 +72,7 @@ pub mod rib_parser {
                     panic!("Couldn't extract peer table from table dump in {}", fp);
                 }
 
-                debug!("{:?}\n", id_peer_map); ///////////////////////////////////////////////////////////////////////////////////////////////////
+                debug!("{:#?}\n", id_peer_map); ///////////////////////////////////////////////////////////////////////////////////////////////////
                 count += 1;
                 continue;
             }
@@ -148,7 +94,7 @@ pub mod rib_parser {
                         }
                     }
                     _ => panic!(
-                        "Unexpected record type {:?} in file {} ({})",
+                        "Unexpected record type {:#?} in file {} ({})",
                         elem.message, fp, count
                     ),
                 }
@@ -159,7 +105,7 @@ pub mod rib_parser {
                         .as_path()
                         .unwrap_or_else(|| {
                             panic!(
-                                "Unable to unpack AS Path segments from RIB entry {:?}",
+                                "Unable to unpack AS Path segments from RIB entry {:#?}",
                                 rib_entry
                             )
                         })
@@ -174,14 +120,14 @@ pub mod rib_parser {
                                 .get_reachable_nlri()
                                 .unwrap_or_else(|| {
                                     panic!(
-                                        "Couldn't extract MP NLRI in file {} ({}) for: {:?}",
+                                        "Couldn't extract MP NLRI in file {} ({}) for: {:#?}",
                                         fp, count, rib_entry
                                     )
                                 });
 
                         assert!(
                             mp_nlri.is_ipv6(),
-                            "MP NLRI is used for non-IPv6 info in file {} ({}): {:?}",
+                            "MP NLRI is used for non-IPv6 info in file {} ({}): {:#?}",
                             fp,
                             count,
                             rib_entry
@@ -191,7 +137,7 @@ pub mod rib_parser {
                     } else {
                         next_hop = rib_entry.attributes.next_hop().unwrap_or_else(|| {
                             panic!(
-                                "No next-hop in file {} ({}) for: {:?}",
+                                "No next-hop in file {} ({}) for: {:#?}",
                                 fp, count, rib_entry
                             )
                         });
@@ -207,7 +153,7 @@ pub mod rib_parser {
                             as_set = asns.clone();
                         } else {
                             panic!(
-                                "Couldn't extract AS path sequence in file {} ({}): {:?}",
+                                "Couldn't extract AS path sequence in file {} ({}): {:#?}",
                                 fp, count, rib_entry
                             );
                         }
@@ -215,12 +161,12 @@ pub mod rib_parser {
                         if as_sequence.is_empty() {
                             if as_set.is_empty() {
                                 panic!(
-                                    "AS sequence and AS set are both undefined in file {} ({}): {:?}",
+                                    "AS sequence and AS set are both undefined in file {} ({}): {:#?}",
                                     fp, count, rib_entry
                                 );
                             } else {
                                 panic!(
-                                    "AS set defined without an AS sequence in file {} ({}): {:?}",
+                                    "AS set defined without an AS sequence in file {} ({}): {:#?}",
                                     fp, count, rib_entry
                                 );
                             }
@@ -266,14 +212,14 @@ pub mod rib_parser {
                 }
             } else {
                 panic!(
-                    "MRT record isn't of type RibAfi in file {} ({}): {:?}",
+                    "MRT record isn't of type RibAfi in file {} ({}): {:#?}",
                     fp, count, elem
                 );
             }
 
             count += 1;
             ///////////////////////////////////////////////////////////////////////////////////////////////////
-            if count >= 1 {
+            if count >= 100 {
                 break;
             }
         }

@@ -2,7 +2,7 @@ pub mod asp_trees {
     use bgpkit_parser::models::Asn;
     use bgpkit_parser::models::Peer;
     use ipnet::IpNet;
-    use log::debug;
+    use log::{debug, info};
     use std::collections::HashMap;
     use std::collections::hash_map::Keys;
     use std::net::IpAddr;
@@ -75,6 +75,10 @@ pub mod asp_trees {
             }
         }
 
+        pub fn len(&self) -> usize {
+            self.routes.len()
+        }
+
         fn get_routes(&self) -> &Vec<Route> {
             &self.routes
         }
@@ -114,6 +118,14 @@ pub mod asp_trees {
     }
 
     impl AsPaths {
+        pub fn is_empty(&self) -> bool {
+            self.paths.len() == 0
+        }
+
+        pub fn len(&self) -> usize {
+            self.paths.len()
+        }
+
         pub fn new() -> Self {
             AsPaths {
                 paths: HashMap::<Vec<Asn>, AsPathRoutes>::new(),
@@ -133,21 +145,6 @@ pub mod asp_trees {
             debug!("AS path present {:?}: {}", path, present);
             present
         }
-
-        // fn has_route(&mut self, path: &Vec<Asn>, route: &Route) -> bool {
-        //     let mut present = false;
-
-        //     if self.has_path(path) {
-        //         present = self.get_routes_at_path(path).has_route(route);
-        //     }
-
-        //     debug!(
-        //         "Route present in AS path {:?}: {}, {:?}",
-        //         path, present, route,
-        //     );
-
-        //     present
-        // }
 
         fn insert_path(&mut self, path: Vec<Asn>) {
             debug!("Adding AS path: {:?}", path);
@@ -201,20 +198,6 @@ pub mod asp_trees {
             self.sequences.keys()
         }
 
-        // fn has_as_paths_at_sequence(&self, sequence: &Vec<Asn>, path: &Vec<Asn>) -> bool {
-        //     let mut present = false;
-
-        //     if self.has_sequence(sequence) {
-        //         present = self.sequences[sequence].has_path(path);
-        //     }
-
-        //     debug!(
-        //         "AS sequence has AS path {:?}: {}, {:?}",
-        //         sequence, present, path
-        //     );
-        //     present
-        // }
-
         fn has_sequence(&self, sequence: &Vec<Asn>) -> bool {
             debug!(
                 "AS sequence present {:?}: {}",
@@ -223,14 +206,6 @@ pub mod asp_trees {
             );
             self.sequences.contains_key(sequence)
         }
-
-        // fn insert_as_paths_at_sequence(&mut self, sequence: Vec<Asn>, path: Vec<Asn>) {
-        //     debug!("Adding AS path for AS sequence {:?}: {:?}", sequence, path);
-        //     if !self.has_sequence(&sequence) {
-        //         self.insert_sequence(sequence.clone());
-        //     }
-        //     self.get_as_paths_at_sequence(&sequence).insert_path(path);
-        // }
 
         fn insert_sequence(&mut self, sequence: Vec<Asn>) {
             debug!("Adding AS sequence: {:?}", sequence);
@@ -276,5 +251,86 @@ pub mod asp_trees {
                 }
             }
         }
+
+        pub fn print_as_paths(&self) {
+            for sequence in self.get_sequences() {
+                info!("{:?}", sequence);
+                for path in self.get_as_paths_at_sequence(sequence).get_paths() {
+                    info!("    {:?}", path);
+                }
+            }
+        }
+
+        pub fn print_total(&self) {
+            let mut sequences = 0;
+            let mut paths = 0;
+            let mut routes = 0;
+
+            for sequence in self.get_sequences() {
+                sequences += 1;
+                let as_paths = self.get_as_paths_at_sequence(sequence);
+                for path in as_paths.get_paths() {
+                    paths += 1;
+                    routes += as_paths.get_routes_at_path(path).len();
+                }
+            }
+            info!(
+                "{} deduped paths, {} paths, {} routes",
+                sequences, paths, routes
+            );
+        }
+
+        pub fn remove_single_paths(&mut self) {
+            let mut to_remove = Vec::new();
+            for sequence in self.get_sequences() {
+                if self.get_as_paths_at_sequence(sequence).len() == 1 {
+                    to_remove.push(sequence.to_owned());
+                }
+            }
+            for key in to_remove.iter() {
+                self.sequences.remove(key);
+            }
+        }
+    }
+
+    pub fn merge_sequences(mut as_sequences: Vec<AsSequences>) -> AsSequences {
+        /*
+         * Merge pairs of AsSequences, delete the 2nd item from each pair,
+         * merge the remaing items in pairs...Continue until only one item is left.
+         */
+        info!("Merging {} sequences", as_sequences.len());
+
+        if as_sequences.is_empty() {
+            panic!("No sequences to merge!");
+        } else if as_sequences.len() == 1 {
+            debug!("Only 1 item, nothing to merge");
+            return as_sequences.pop().unwrap();
+        }
+
+        while as_sequences.len() > 1 {
+            for chunks in as_sequences.chunks_mut(2) {
+                if let [seq1, seq2] = chunks {
+                    seq1.merge_from(seq2);
+                }
+            }
+
+            let to_delete = as_sequences.len() / 2; // rounds down
+            let mut deleted = 0;
+            let mut index = 1;
+
+            while deleted < to_delete {
+                for i in 0..as_sequences.len() {
+                    // ^ Up to but not including
+
+                    if i == index {
+                        as_sequences.remove(i);
+                        deleted += 1;
+                        index += 1;
+                        break;
+                    }
+                }
+            }
+        }
+        as_sequences.pop().unwrap()
     }
 }
