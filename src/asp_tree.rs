@@ -1,6 +1,5 @@
 pub mod asp_trees {
-    use bgpkit_parser::models::Asn;
-    use bgpkit_parser::models::Peer;
+    use bgpkit_parser::models::{Asn, Community, LargeCommunity, Peer};
     use ipnet::IpNet;
     use log::{debug, info};
     use std::collections::HashMap;
@@ -15,6 +14,8 @@ pub mod asp_trees {
         next_hop: IpAddr,
         peer: Peer,
         prefix: IpNet,
+        communities: Vec<Community>,
+        large_communities: Vec<LargeCommunity>,
     }
 
     impl Route {
@@ -25,6 +26,8 @@ pub mod asp_trees {
             next_hop: IpAddr,
             peer: Peer,
             prefix: IpNet,
+            communities: Vec<Community>,
+            large_communities: Vec<LargeCommunity>,
         ) -> Self {
             Self {
                 aspath,
@@ -33,6 +36,8 @@ pub mod asp_trees {
                 next_hop,
                 peer,
                 prefix,
+                communities,
+                large_communities,
             }
         }
     }
@@ -73,6 +78,10 @@ pub mod asp_trees {
             AsPathRoutes {
                 routes: Vec::<Route>::new(),
             }
+        }
+
+        pub fn is_empty(&self) -> bool {
+            self.routes.len() == 0
         }
 
         pub fn len(&self) -> usize {

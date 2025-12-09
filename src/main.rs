@@ -4,7 +4,6 @@ pub mod asp_tree;
 pub mod http;
 pub mod parse;
 pub mod ribs;
-use log::info;
 use std::io::Write;
 
 fn main() {
