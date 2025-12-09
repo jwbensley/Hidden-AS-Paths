@@ -2,10 +2,10 @@ pub mod rib_parser {
     use crate::asp_tree::asp_trees::{AsSequences, Route};
     use crate::ribs::rib_getter::RibFile;
     use bgpkit_parser::BgpkitParser;
-    use bgpkit_parser::models::MrtMessage;
-    use bgpkit_parser::models::Peer;
-    use bgpkit_parser::models::TableDumpV2Message;
-    use bgpkit_parser::models::{AsPathSegment, Asn};
+    use bgpkit_parser::models::{
+        AsPathSegment, Asn, AttrFlags, AttrType, Attribute, AttributeValue, MrtMessage, Peer,
+        TableDumpV2Message, TableDumpV2Type,
+    };
     use core::panic;
     use ipnet::IpNet;
     use log::{debug, info};
@@ -81,14 +81,12 @@ pub mod rib_parser {
                 &elem.message
             {
                 match rib_entries.rib_type {
-                    bgpkit_parser::models::TableDumpV2Type::RibIpv4Unicast
-                    | bgpkit_parser::models::TableDumpV2Type::RibIpv4UnicastAddPath => {
+                    TableDumpV2Type::RibIpv4Unicast | TableDumpV2Type::RibIpv4UnicastAddPath => {
                         if rib_entries.prefix.prefix == v4_default {
                             continue;
                         }
                     }
-                    bgpkit_parser::models::TableDumpV2Type::RibIpv6Unicast
-                    | bgpkit_parser::models::TableDumpV2Type::RibIpv6UnicastAddPath => {
+                    TableDumpV2Type::RibIpv6Unicast | TableDumpV2Type::RibIpv6UnicastAddPath => {
                         if rib_entries.prefix.prefix == v6_default {
                             continue;
                         }
@@ -143,6 +141,33 @@ pub mod rib_parser {
                         });
                     }
 
+                    let mut communities = Vec::new();
+                    let mut large_communities = Vec::new();
+
+                    if let AttributeValue::Communities(c) = rib_entry
+                        .attributes
+                        .get_attr(AttrType::COMMUNITIES)
+                        .unwrap_or(Attribute {
+                            value: AttributeValue::Communities(Vec::new()),
+                            flag: AttrFlags::OPTIONAL | AttrFlags::TRANSITIVE,
+                        })
+                        .value
+                    {
+                        communities = c;
+                    }
+
+                    if let AttributeValue::LargeCommunities(l) = rib_entry
+                        .attributes
+                        .get_attr(AttrType::LARGE_COMMUNITIES)
+                        .unwrap_or(Attribute {
+                            value: AttributeValue::LargeCommunities(Vec::new()),
+                            flag: AttrFlags::OPTIONAL | AttrFlags::TRANSITIVE,
+                        })
+                        .value
+                    {
+                        large_communities = l;
+                    }
+
                     let mut as_sequence = Vec::<Asn>::new();
                     let mut as_set = Vec::<Asn>::new();
 
@@ -187,6 +212,8 @@ pub mod rib_parser {
                                     next_hop,
                                     id_peer_map[&rib_entry.peer_index],
                                     rib_entries.prefix.prefix,
+                                    communities.clone(),
+                                    large_communities.clone(),
                                 );
                                 paths.insert_route_at_sequence(
                                     deduped.clone(),
@@ -205,6 +232,8 @@ pub mod rib_parser {
                                 next_hop,
                                 id_peer_map[&rib_entry.peer_index],
                                 rib_entries.prefix.prefix,
+                                communities.clone(),
+                                large_communities.clone(),
                             );
                             paths.insert_route_at_sequence(deduped, as_sequence.clone(), route);
                         }
@@ -219,7 +248,7 @@ pub mod rib_parser {
 
             count += 1;
             ///////////////////////////////////////////////////////////////////////////////////////////////////
-            if count >= 100 {
+            if count >= 2 {
                 break;
             }
         }
