@@ -4,6 +4,7 @@ pub mod asp_tree;
 pub mod http;
 pub mod parse;
 pub mod ribs;
+pub mod search;
 use std::io::Write;
 
 fn main() {
@@ -27,8 +28,12 @@ fn main() {
 
     let all_as_sequences = parse::rib_parser::parse_ribs(dir, &rib_files);
     let mut as_sequences = asp_tree::asp_trees::merge_sequences(all_as_sequences);
+    println!("Total paths:");
     as_sequences.print_total();
-    as_sequences.remove_single_paths();
+    println!("Removing single AS sequences...");
+    //as_sequences.remove_single_paths();
+    //println!("Total paths:");
     as_sequences.print_total();
-    as_sequences.print_as_paths();
+    //as_sequences.print_as_paths();
+    search::searches::communities_without_asn(&as_sequences);
 }

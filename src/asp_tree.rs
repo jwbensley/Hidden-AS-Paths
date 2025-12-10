@@ -40,6 +40,14 @@ pub mod asp_trees {
                 large_communities,
             }
         }
+
+        pub fn get_communities(&self) -> &Vec<Community> {
+            &self.communities
+        }
+
+        pub fn get_large_communities(&self) -> &Vec<LargeCommunity> {
+            &self.large_communities
+        }
     }
 
     impl PartialEq for Route {
@@ -88,17 +96,17 @@ pub mod asp_trees {
             self.routes.len()
         }
 
-        fn get_routes(&self) -> &Vec<Route> {
+        pub fn get_routes(&self) -> &Vec<Route> {
             &self.routes
         }
 
-        fn has_route(&self, route: &Route) -> bool {
+        pub fn has_route(&self, route: &Route) -> bool {
             let present = self.routes.contains(route);
             debug!("Route present {:?}: {}", route, present);
             present
         }
 
-        fn insert_route(&mut self, route: Route) {
+        pub fn insert_route(&mut self, route: Route) {
             debug!("Adding route: {:?}", route);
             if !self.has_route(&route) {
                 self.routes.push(route);
@@ -141,28 +149,28 @@ pub mod asp_trees {
             }
         }
 
-        fn get_paths(&self) -> Keys<'_, Vec<Asn>, AsPathRoutes> {
+        pub fn get_paths(&self) -> Keys<'_, Vec<Asn>, AsPathRoutes> {
             self.paths.keys()
         }
 
-        fn get_routes_at_path(&self, path: &Vec<Asn>) -> &AsPathRoutes {
+        pub fn get_routes_at_path(&self, path: &Vec<Asn>) -> &AsPathRoutes {
             self.paths.get(path).unwrap()
         }
 
-        fn has_path(&self, path: &Vec<Asn>) -> bool {
+        pub fn has_path(&self, path: &Vec<Asn>) -> bool {
             let present = self.paths.contains_key(path);
             debug!("AS path present {:?}: {}", path, present);
             present
         }
 
-        fn insert_path(&mut self, path: Vec<Asn>) {
+        pub fn insert_path(&mut self, path: Vec<Asn>) {
             debug!("Adding AS path: {:?}", path);
             if !self.has_path(&path) {
                 self.paths.insert(path, AsPathRoutes::new());
             }
         }
 
-        fn insert_route_at_path(&mut self, path: Vec<Asn>, route: Route) {
+        pub fn insert_route_at_path(&mut self, path: Vec<Asn>, route: Route) {
             debug!("Adding route in AS path {:?}: {:?}", path, route);
             if !self.has_path(&path) {
                 self.insert_path(path.clone());
@@ -199,7 +207,7 @@ pub mod asp_trees {
             }
         }
 
-        fn get_as_paths_at_sequence(&self, sequence: &Vec<Asn>) -> &AsPaths {
+        pub fn get_as_paths_at_sequence(&self, sequence: &Vec<Asn>) -> &AsPaths {
             self.sequences.get(sequence).unwrap()
         }
 
@@ -207,7 +215,7 @@ pub mod asp_trees {
             self.sequences.keys()
         }
 
-        fn has_sequence(&self, sequence: &Vec<Asn>) -> bool {
+        pub fn has_sequence(&self, sequence: &Vec<Asn>) -> bool {
             debug!(
                 "AS sequence present {:?}: {}",
                 sequence,
@@ -216,7 +224,7 @@ pub mod asp_trees {
             self.sequences.contains_key(sequence)
         }
 
-        fn insert_sequence(&mut self, sequence: Vec<Asn>) {
+        pub fn insert_sequence(&mut self, sequence: Vec<Asn>) {
             debug!("Adding AS sequence: {:?}", sequence);
             if !self.has_sequence(&sequence) {
                 self.sequences.insert(sequence, AsPaths::new());
@@ -290,6 +298,9 @@ pub mod asp_trees {
         }
 
         pub fn remove_single_paths(&mut self) {
+            /*
+             * Remove all deduped AS sequences which only have a single AS path
+             */
             let mut to_remove = Vec::new();
             for sequence in self.get_sequences() {
                 if self.get_as_paths_at_sequence(sequence).len() == 1 {
