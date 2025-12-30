@@ -316,7 +316,7 @@ pub mod asp_trees {
     pub fn merge_sequences(mut as_sequences: Vec<AsSequences>) -> AsSequences {
         /*
          * Merge pairs of AsSequences, delete the 2nd item from each pair,
-         * merge the remaing items in pairs...Continue until only one item is left.
+         * merge the remaining items in pairs...Continue until only one item is left.
          */
         info!("Merging {} sequences", as_sequences.len());
 
