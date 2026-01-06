@@ -1,2 +1,7 @@
-/target
 mrts/
+target/
+
+
+# Added by cargo
+
+/target
