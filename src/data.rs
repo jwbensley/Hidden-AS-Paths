@@ -41,13 +41,12 @@ pub mod path_data {
             if self.has_as_paths_for_origin(&origin) {
                 return;
             };
-            self.as_paths
-                .insert(origin.clone(), OriginAsPaths::new(origin));
+            self.as_paths.insert(origin, OriginAsPaths::new(origin));
         }
 
         fn add_origin_as_paths(&mut self, origin: &Asn, origin_as_paths: &OriginAsPaths) {
             if !self.has_as_paths_for_origin(origin) {
-                self.add_origin(origin.clone());
+                self.add_origin(*origin);
             }
             self.get_as_paths_for_origin_mut(origin)
                 .merge_from(origin_as_paths);
@@ -98,55 +97,11 @@ pub mod path_data {
         pub fn insert_route(&mut self, route: Route) {
             debug!("Adding route {:#?}", route);
             if !self.has_route(&route) {
-                self.add_origin(route.get_origin().clone());
+                self.add_origin(*route.get_origin());
                 self.add_as_path(route.get_as_path().clone());
                 self.add_route(route);
             }
         }
-
-        //     pub fn print_as_paths(&self) {
-        //         for sequence in self.get_sequences() {
-        //             info!("{:?}", sequence);
-        //             for path in self.get_as_paths_at_sequence(sequence).get_paths() {
-        //                 info!("    {:?}", path);
-        //             }
-        //         }
-        //     }
-
-        //     pub fn print_total(&self) {
-        //         let mut sequences = 0;
-        //         let mut paths = 0;
-        //         let mut routes = 0;
-
-        //         for sequence in self.get_sequences() {
-        //             sequences += 1;
-        //             let as_paths = self.get_as_paths_at_sequence(sequence);
-        //             for path in as_paths.get_paths() {
-        //                 paths += 1;
-        //                 routes += as_paths.get_routes_at_path(path).len();
-        //             }
-        //         }
-        //         info!(
-        //             "{} deduped paths, {} paths, {} routes",
-        //             sequences, paths, routes
-        //         );
-        //     }
-
-        //     pub fn remove_single_paths(&mut self) {
-        //         /*
-        //          * Remove all deduped AS sequences which only have a single AS path
-        //          */
-        //         let mut to_remove = Vec::new();
-        //         for sequence in self.get_sequences() {
-        //             if self.get_as_paths_at_sequence(sequence).len() == 1 {
-        //                 to_remove.push(sequence.to_owned());
-        //             }
-        //         }
-        //         for key in to_remove.iter() {
-        //             self.sequences.remove(key);
-        //         }
-        //     }
-        // }
 
         pub fn merge_from(&mut self, other: &Self) {
             for origin in other.get_origins() {

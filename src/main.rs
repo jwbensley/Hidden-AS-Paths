@@ -25,22 +25,18 @@ fn main() {
         logging::setup_loggin("info");
     }
 
-    let rib_files: Vec<RibFile>;
-
-    if args.ribs_source.rib_files.is_empty() {
-        rib_files =
-            ribs::rib_getter::download_ribs_for_day(args.get_ribs_ymd(), args.get_ribs_path());
+    let rib_files: Vec<RibFile> = if args.ribs_source.rib_files.is_empty() {
+        ribs::rib_getter::download_ribs_for_day(args.get_ribs_ymd(), args.get_ribs_path())
     } else {
-        rib_files = args
-            .ribs_source
+        args.ribs_source
             .rib_files
             .into_iter()
             .map(|filename| RibFile {
                 url: String::new(),
                 filename,
             })
-            .collect();
-    }
+            .collect()
+    };
 
     let _path_data = parse::rib_parser::get_path_data(&rib_files, &args.threads);
 }
