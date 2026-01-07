@@ -51,21 +51,21 @@ pub mod as_paths {
             &self.as_path
         }
 
-        // pub fn get_communities(&self) -> &Vec<Community> {
-        //     &self.communities
-        // }
+        pub fn get_communities(&self) -> &Vec<Community> {
+            &self.communities
+        }
 
-        // pub fn get_large_communities(&self) -> &Vec<LargeCommunity> {
-        //     &self.large_communities
-        // }
+        pub fn get_large_communities(&self) -> &Vec<LargeCommunity> {
+            &self.large_communities
+        }
 
         pub fn get_origin(&self) -> &Asn {
-            &self.as_path.last().unwrap()
+            self.as_path.last().unwrap()
         }
     }
 
     /// A deduped AS path which stores one or more routes
-    #[derive(Debug)]
+    #[derive(Debug, Clone)]
     pub struct AsPath {
         as_path: Vec<Asn>,
         routes: Vec<Route>,
@@ -87,13 +87,15 @@ pub mod as_paths {
         pub fn new(mut as_path: Vec<Asn>) -> Self {
             as_path.dedup();
             AsPath {
-                as_path: as_path,
+                as_path,
                 routes: Vec::<Route>::new(),
             }
         }
 
         pub fn add_route(&mut self, route: Route) {
-            if self.has_route(&route) {return; };
+            if self.has_route(&route) {
+                return;
+            };
             self.routes.push(route);
         }
 
@@ -108,15 +110,14 @@ pub mod as_paths {
         // pub fn get_origin(&self) -> &Asn {
         //     &self.get_as_path().last().unwrap()
         // }
-        
+
         // pub fn get_routes(&self) -> &Vec<Route> {
         //     &self.routes
         // }
-        
-        
+
         pub fn has_route(&self, route: &Route) -> bool {
             let present = self.routes.contains(route);
-            debug!("Route present {:?}: {}", route, present);
+            debug!("Route present {:#?}: {}", route, present);
             present
         }
 
@@ -125,7 +126,7 @@ pub mod as_paths {
         // }
 
         // pub fn insert_route(&mut self, route: Route) {
-        //     debug!("Adding route: {:?}", route);
+        //     debug!("Adding route: {:#?}", route);
         //     if !self.has_route(&route) {
         //         self.routes.push(route);
         //     }
@@ -134,14 +135,13 @@ pub mod as_paths {
         // pub fn route_count(&self) -> usize {
         //     self.routes.len()
         // }
-
     }
 
     /// A vector of unique, deduped AS paths, which all point to the same origin ASN
-    #[derive(Debug)]
+    #[derive(Debug, Clone)]
     pub struct OriginAsPaths {
         origin: Asn,
-        as_paths: Vec<AsPath>
+        as_paths: Vec<AsPath>,
     }
 
     // impl Default for OriginAsPaths {
@@ -157,25 +157,23 @@ pub mod as_paths {
     }
 
     impl OriginAsPaths {
-        // pub fn as_path_count(&self) -> usize {
-        //     self.as_paths.len()
-        // }
-
         pub fn new(origin: Asn) -> Self {
             OriginAsPaths {
-                origin: origin,
+                origin,
                 as_paths: Vec::<AsPath>::new(),
             }
         }
 
-        pub fn add_as_path(&mut self, as_path: Vec<Asn>) {
-            if self.has_as_path(&as_path) { return };
-            self.as_paths.push(AsPath::new(as_path));
+        pub fn add_as_path(&mut self, as_path: AsPath) {
+            if self.has_as_path(&as_path) {
+                return;
+            };
+            self.as_paths.push(as_path);
         }
 
         pub fn add_route(&mut self, route: Route) {
-            if !self.has_as_path(&route.get_as_path()) { self.add_as_path(route.get_as_path().clone()); };
-            self.get_as_path_mut(&route.get_as_path()).add_route(route);
+            let as_path = AsPath::new(route.get_as_path().clone());
+            self.get_as_path_mut(&as_path).add_route(route);
         }
 
         fn get_as_paths(&self) -> &Vec<AsPath> {
@@ -186,70 +184,60 @@ pub mod as_paths {
             self.as_paths.as_mut()
         }
 
-        fn get_as_path(&self, as_path: &Vec<Asn>) -> &AsPath {
+        fn get_as_path(&self, as_path: &AsPath) -> &AsPath {
             for a in self.get_as_paths() {
-                if a.get_as_path() == as_path {
+                if a.get_as_path() == as_path.get_as_path() {
                     return a;
                 }
             }
-            panic!("AS Path not found {:?}", as_path);
+            panic!("AS Path not found {:#?}", as_path);
         }
 
-        fn get_as_path_mut(&mut self, as_path: &Vec<Asn>) -> &mut AsPath {
+        fn get_as_path_mut(&mut self, as_path: &AsPath) -> &mut AsPath {
             for a in self.get_as_paths_mut() {
-                if a.get_as_path() == as_path {
+                if a.get_as_path() == as_path.get_as_path() {
                     return a;
                 }
             }
-            panic!("AS Path not found {:?}", as_path);
+            panic!("AS Path not found {:#?}", as_path);
         }
 
-        fn get_origin(&self) -> &Asn {
+        pub fn get_origin(&self) -> &Asn {
             &self.origin
         }
 
-        // pub fn get_routes_at_path(&self, path: &Vec<Asn>) -> &AsPathRoutes {
-        //     self.paths.get(path).unwrap()
-        // }
-
-        pub fn has_as_path(&self, as_path: &Vec<Asn>) -> bool {
+        pub fn has_as_path(&self, as_path: &AsPath) -> bool {
             let mut present = false;
             for a in self.get_as_paths() {
-                if a.get_as_path() == as_path {
+                if a.get_as_path() == as_path.get_as_path() {
                     present = true;
                     break;
                 }
             }
-            debug!("AS path present {:?}: {}", as_path, present);
+            debug!("AS path present {}: {:#?}", present, as_path);
             present
         }
 
         pub fn has_route(&self, route: &Route) -> bool {
-            if route.get_origin() != self.get_origin() { panic!("Checking if route exists in AS Paths for origin {}: {:?}", self.get_origin(), route) };
-            if !self.has_as_path(route.get_as_path()) { return false; };
-            let as_path = self.get_as_path(route.get_as_path());
+            if route.get_origin() != self.get_origin() {
+                panic!(
+                    "Checking if route exists in AS Paths for origin {}: {:#?}",
+                    self.get_origin(),
+                    route
+                )
+            };
+            let as_path = AsPath::new(route.get_as_path().clone());
+            if !self.has_as_path(&as_path) {
+                return false;
+            };
+            let as_path = self.get_as_path(&as_path);
             as_path.has_route(route)
         }
 
-        // pub fn insert_as_path(&mut self, as_path: Vec<Asn>) {
-        //     debug!("Adding AS path: {:?}", &as_path);
-        //     let asp = AsPath::new(as_path);
-        //     if asp.get_origin() != self.get_origin() {
-        //         panic!("Can't add AS path with incorrect origin, expected {} in {:?}", self.get_origin(), asp.get_as_path());
-        //     }
-        //     if !self.has_as_path(&asp) {
-        //         self.as_paths.push(asp);
-        //     }
-        // }
-
-        // pub fn insert_route_at_path(&mut self, path: Vec<Asn>, route: Route) {
-        //     debug!("Adding route in AS path {:?}: {:?}", path, route);
-        //     if !self.has_path(&path) {
-        //         self.insert_path(path.clone());
-        //     }
-
-        //     self.paths.get_mut(&path).unwrap().insert_route(route);
-        // }
+        pub fn merge_from(&mut self, other: &Self) {
+            for as_path in other.get_as_paths() {
+                self.add_as_path(as_path.clone());
+            }
+        }
     }
-
 }

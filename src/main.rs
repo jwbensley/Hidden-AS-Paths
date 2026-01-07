@@ -1,15 +1,46 @@
-pub mod as_paths;
-pub mod logging;
+// #![warn(missing_docs)]
+
+// #[cfg(not(target_env = "msvc"))]
+// use tikv_jemallocator::Jemalloc;
+//
+// #[cfg(not(target_env = "msvc"))]
+// #[global_allocator]
+// static GLOBAL: Jemalloc = Jemalloc;
+
+use crate::ribs::rib_getter::RibFile;
+
+pub mod args;
+pub mod data;
 pub mod http;
+pub mod logging;
 pub mod parse;
-pub mod path_data;
+pub mod paths;
 pub mod ribs;
 
-
 fn main() {
-    logging::setup_loggin();
-    let date = "2025-09-22";
-    let dir = "./mrts";
-    let rib_files = ribs::rib_getter::download_ribs_for_day(date, dir);
-    let path_data = parse::rib_parser::get_path_data(dir, &rib_files);
+    let args = args::cli_args::parse_cli_arg();
+    if args.debug {
+        logging::setup_loggin("debug");
+    } else {
+        logging::setup_loggin("info");
+    }
+
+    let rib_files: Vec<RibFile>;
+
+    if args.ribs_source.rib_files.is_empty() {
+        rib_files =
+            ribs::rib_getter::download_ribs_for_day(args.get_ribs_ymd(), args.get_ribs_path());
+    } else {
+        rib_files = args
+            .ribs_source
+            .rib_files
+            .into_iter()
+            .map(|filename| RibFile {
+                url: String::new(),
+                filename,
+            })
+            .collect();
+    }
+
+    let _path_data = parse::rib_parser::get_path_data(&rib_files, &args.threads);
 }
