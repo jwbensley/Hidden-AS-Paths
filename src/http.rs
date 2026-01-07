@@ -1,9 +1,10 @@
-pub mod http {
+pub mod http_client {
     use log::{debug, info};
-    use reqwest::blocking;
+    use reqwest::blocking::Client;
     use std::fs::File;
     use std::io::Write;
     use std::path::Path;
+    use std::time::Duration;
 
     pub fn download_file(url: &str, dest: &Path) {
         if dest.exists() {
@@ -17,9 +18,17 @@ pub mod http {
 
         debug!("GET'ing URL {}", url);
 
-        let response = blocking::get(url)
+        let client = Client::builder()
+            .timeout(Duration::from_secs(300)) // Increase default timeout
+            .build()
+            .unwrap();
+
+        let response = client
+            .get(url)
+            .send()
             .map_err(|e| format!("HTTP GET failed: {}", e))
             .unwrap();
+
         let content = response
             .bytes()
             .map_err(|e| format!("Failed to read response bytes: {}", e))
