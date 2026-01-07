@@ -34,7 +34,7 @@ pub mod http_client {
             .map_err(|e| format!("Failed to read response bytes: {}", e))
             .unwrap();
 
-        File::create(&dest)
+        File::create(dest)
             .map_err(|e| format!("Failed to create file: {}", e))
             .unwrap()
             .write_all(&content)

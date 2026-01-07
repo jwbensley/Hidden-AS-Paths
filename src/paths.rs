@@ -71,12 +71,6 @@ pub mod as_paths {
         routes: Vec<Route>,
     }
 
-    // impl Default for AsPath {
-    //     fn default() -> Self {
-    //         Self::new(Vec::new())
-    //     }
-    // }
-
     impl PartialEq for AsPath {
         fn eq(&self, other: &Self) -> bool {
             (self.routes == other.routes) && (self.as_path == other.as_path)
@@ -143,12 +137,6 @@ pub mod as_paths {
         origin: Asn,
         as_paths: Vec<AsPath>,
     }
-
-    // impl Default for OriginAsPaths {
-    //     fn default() -> Self {
-    //         Self::new()
-    //     }
-    // }
 
     impl PartialEq for OriginAsPaths {
         fn eq(&self, other: &Self) -> bool {

@@ -37,15 +37,12 @@ pub mod rib_parser {
             .build()
             .unwrap();
 
-        let results = pool
-            .install(|| {
-                rib_files
-                    .into_par_iter()
-                    .map(|rib_file| parse_rib_file(rib_file.filename.clone()))
-            })
-            .collect();
-
-        results
+        pool.install(|| {
+            rib_files
+                .into_par_iter()
+                .map(|rib_file| parse_rib_file(rib_file.filename.clone()))
+        })
+        .collect()
     }
 
     /// Return the mapping of peer IDs to peer details
@@ -215,7 +212,7 @@ pub mod rib_parser {
             }
         }
 
-        return (as_sequence, as_set);
+        (as_sequence, as_set)
     }
 
     fn parse_rib_entries(
@@ -252,14 +249,14 @@ pub mod rib_parser {
                 if !as_set.is_empty() {
                     for asn in &as_set {
                         let mut as_path = as_sequence.clone();
-                        as_path.push(asn.clone());
+                        as_path.push(*asn);
 
                         path_data.insert_route(Route::new(
                             as_path.clone(),
                             fp.clone(),
-                            next_hop.clone(),
-                            id_peer_map[&rib_entry.peer_index].clone(),
-                            rib_entries.prefix.prefix.clone(),
+                            next_hop,
+                            id_peer_map[&rib_entry.peer_index],
+                            rib_entries.prefix.prefix,
                             communities.clone(),
                             large_communities.clone(),
                         ));
@@ -268,9 +265,9 @@ pub mod rib_parser {
                     path_data.insert_route(Route::new(
                         as_sequence.clone(),
                         fp.clone(),
-                        next_hop.clone(),
-                        id_peer_map[&rib_entry.peer_index].clone(),
-                        rib_entries.prefix.prefix.clone(),
+                        next_hop,
+                        id_peer_map[&rib_entry.peer_index],
+                        rib_entries.prefix.prefix,
                         communities.clone(),
                         large_communities.clone(),
                     ));
