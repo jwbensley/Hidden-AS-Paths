@@ -132,11 +132,14 @@ pub mod path_data {
         /// then merge the remaining objs in pairs. Continue until only one obj is left.
         pub fn merge_path_data(mut all_path_data: Vec<PathData>) -> PathData {
             info!("Merging {} objects", all_path_data.len());
+            let origins: usize = all_path_data.iter().map(|d| d.count_origins()).sum();
+            let as_paths: usize = all_path_data.iter().map(|d| d.count_as_paths()).sum();
+            info!("Pre-merge, {} origins, {} AS paths", origins, as_paths);
 
             if all_path_data.is_empty() {
                 panic!("No sequences to merge!");
             } else if all_path_data.len() == 1 {
-                info!("Only 1 item, nothing to merge");
+                debug!("Only 1 item, nothing to merge");
                 return all_path_data.pop().unwrap();
             }
 
@@ -164,8 +167,16 @@ pub mod path_data {
                     }
                 }
             }
-            info!("Merge complete");
-            all_path_data.pop().unwrap()
+
+            assert!(all_path_data.len() == 1);
+            let path_data = all_path_data.pop().unwrap();
+            info!(
+                "Post-merge, {} origins, {} AS paths",
+                path_data.count_origins(),
+                path_data.count_as_paths()
+            );
+
+            path_data
         }
 
         fn remove_as_paths_for_origin(&mut self, origin: &Asn) {
@@ -181,17 +192,26 @@ pub mod path_data {
         }
 
         /// Remove origins which only have a single AS path
-        pub fn remove_single_paths(&mut self) {
+        pub fn remove_single_as_paths(&mut self) {
+            info!("Removing single AS paths");
+
             let mut to_remove = Vec::new();
             for origin in self.get_origins() {
                 if self.get_as_paths_for_origin(origin).len() == 1 {
                     to_remove.push(origin.to_owned());
                 }
             }
+
             debug!("Removing {} origins with single AS paths", to_remove.len(),);
             for key in to_remove.iter() {
                 self.remove_as_paths_for_origin(key);
             }
+
+            info!(
+                "Remaining multi-path origins {}, with {} AS paths",
+                self.count_origins(),
+                self.count_as_paths()
+            );
         }
     }
 }
