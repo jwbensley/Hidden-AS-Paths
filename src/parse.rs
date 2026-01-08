@@ -19,7 +19,7 @@ pub mod rib_parser {
     pub fn get_path_data(rib_files: &Vec<RibFile>, threads: &usize) -> PathData {
         let all_mrts_path_data = parse_rib_files(rib_files, threads);
         let mut merged_path_data = PathData::merge_path_data(all_mrts_path_data);
-        merged_path_data.remove_single_paths();
+        merged_path_data.remove_single_as_paths();
         merged_path_data
     }
 
@@ -103,19 +103,6 @@ pub mod rib_parser {
         }
     }
 
-    fn get_as_path_segs(rib_entry: &RibEntry) -> &Vec<AsPathSegment> {
-        &rib_entry
-            .attributes
-            .as_path()
-            .unwrap_or_else(|| {
-                panic!(
-                    "Unable to unpack AS Path segments from RIB entry {:#?}",
-                    rib_entry
-                )
-            })
-            .segments
-    }
-
     /// Return the next-nop which can be v4 or v6.
     /// If v6 LL and GUA nh exists, GUA is returned.
     fn get_next_hop(rib_entry: &RibEntry, fp: &String, count: &u32) -> IpAddr {
@@ -181,35 +168,49 @@ pub mod rib_parser {
         }
     }
 
-    fn get_as_path_chunks(
-        as_path_segment: &AsPathSegment,
-        fp: &String,
-        count: &u32,
-    ) -> (Vec<Asn>, Vec<Asn>) {
+    /// Split the segments of the AS Path into an AS Sequence and an AS Set.
+    /// The likelihood of there being more than on AS Sequnece (because the path)
+    /// is longer than 255 ASNs is incredibly low. Equally the likely of more than
+    /// one AS Set being present is incredily low. So we make the lazy assumption
+    /// in the DFZ we'll see one of each, or one of both.
+    fn get_as_path_chunks(rib_entry: &RibEntry, fp: &String, count: &u32) -> (Vec<Asn>, Vec<Asn>) {
+        let as_path_segments = &rib_entry
+            .attributes
+            .as_path()
+            .unwrap_or_else(|| {
+                panic!(
+                    "Unable to unpack AS Path segments from RIB entry {:#?}",
+                    rib_entry
+                )
+            })
+            .segments;
+
         let mut as_sequence = Vec::<Asn>::new();
         let mut as_set = Vec::<Asn>::new();
 
-        if let AsPathSegment::AsSequence(asns) = as_path_segment {
-            as_sequence = asns.clone();
-        } else if let AsPathSegment::AsSet(asns) = as_path_segment {
-            as_set = asns.clone();
-        } else {
-            panic!(
-                "Couldn't extract AS path sequence in file {} ({}): {:#?}",
-                fp, count, as_path_segment
-            );
+        for path_seg in as_path_segments {
+            if let AsPathSegment::AsSequence(asns) = path_seg {
+                as_sequence = asns.clone();
+            } else if let AsPathSegment::AsSet(asns) = path_seg {
+                as_set = asns.clone();
+            } else {
+                panic!(
+                    "Couldn't extract AS path sequence in file {} ({}): {:#?}",
+                    fp, count, path_seg
+                );
+            }
         }
 
         if as_sequence.is_empty() {
             if as_set.is_empty() {
                 panic!(
                     "AS sequence and AS set are both undefined in file {} ({}): {:#?}",
-                    fp, count, as_path_segment
+                    fp, count, rib_entry
                 );
             } else {
                 panic!(
                     "AS set defined without an AS sequence in file {} ({}): {:#?}",
-                    fp, count, as_path_segment
+                    fp, count, rib_entry
                 );
             }
         }
@@ -240,32 +241,19 @@ pub mod rib_parser {
             let communities = get_communities(rib_entry);
             let large_communities = get_large_communities(rib_entry);
 
-            // For each AS path segment, an AsSequence should be defined,
-            // and optionally an AsSet at the end due to the use of atomic aggregates.
+            // Split each AS path segment into an AsSequence and AsSet.
             // If an AsSet is defined, for each ASN in the set, create a unique AS path
             // (the AS Sequence + the AsSet ASN) and record the prefix as being available
             // via multiple AS Paths.
-            for as_path_segment in get_as_path_segs(rib_entry) {
-                let (as_sequence, as_set) = get_as_path_chunks(as_path_segment, fp, count);
+            let (as_sequence, as_set) = get_as_path_chunks(rib_entry, fp, count);
 
-                if !as_set.is_empty() {
-                    for asn in &as_set {
-                        let mut as_path = as_sequence.clone();
-                        as_path.push(*asn);
+            if !as_set.is_empty() {
+                for asn in &as_set {
+                    let mut as_path = as_sequence.clone();
+                    as_path.push(*asn);
 
-                        path_data.insert_route(Route::new(
-                            as_path.clone(),
-                            fp.clone(),
-                            next_hop,
-                            id_peer_map[&rib_entry.peer_index],
-                            rib_entries.prefix.prefix,
-                            communities.clone(),
-                            large_communities.clone(),
-                        ));
-                    }
-                } else {
                     path_data.insert_route(Route::new(
-                        as_sequence.clone(),
+                        as_path.clone(),
                         fp.clone(),
                         next_hop,
                         id_peer_map[&rib_entry.peer_index],
@@ -274,6 +262,16 @@ pub mod rib_parser {
                         large_communities.clone(),
                     ));
                 }
+            } else {
+                path_data.insert_route(Route::new(
+                    as_sequence.clone(),
+                    fp.clone(),
+                    next_hop,
+                    id_peer_map[&rib_entry.peer_index],
+                    rib_entries.prefix.prefix,
+                    communities.clone(),
+                    large_communities.clone(),
+                ));
             }
         }
     }
@@ -299,11 +297,6 @@ pub mod rib_parser {
             parse_rib_entries(&mrt_entry, &mut path_data, &id_peer_map, &fp, &count);
 
             count += 1;
-
-            ///////////////////////////////////////////////////////////////////////////////////////////////////
-            // if count >= 20 {
-            //     break;
-            // }
         }
 
         info!(

@@ -1,5 +1,6 @@
 // #![warn(missing_docs)]
 
+use log::info;
 #[cfg(not(target_env = "msvc"))]
 use tikv_jemallocator::Jemalloc;
 
@@ -39,10 +40,5 @@ fn main() {
             .collect()
     };
 
-    let path_data = parse::rib_parser::get_path_data(&rib_files, &args.threads);
-    println!(
-        "Remaining data is for {} origins with {} AS paths",
-        path_data.count_origins(),
-        path_data.count_as_paths()
-    );
+    let _path_data = parse::rib_parser::get_path_data(&rib_files, &args.threads);
 }
