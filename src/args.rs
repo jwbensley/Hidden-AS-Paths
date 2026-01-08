@@ -2,7 +2,7 @@ pub mod cli_args {
     use clap::{Args, Parser, Subcommand};
 
     /// Download RIB files by specifying an output folder and a date.
-    /// The downloaded files will then be parsed (existing files are not downloaded).
+    /// The downloaded files will then be parsed (existing files are not re-downloaded).
     #[derive(Debug, Args)]
     pub struct DownloadArgs {
         /// Download RIBs to this directory
@@ -17,7 +17,7 @@ pub mod cli_args {
     /// Parse RIB files which aready exist locally.
     #[derive(Debug, Args)]
     pub struct FileArgs {
-        /// Glob of existing MRT files to parse (if not specified, all MRT files for specified date will be downloaded and parsed)
+        /// Space seperated list of existing MRT files to parse
         #[arg(short = 'f', long, value_delimiter = ' ', num_args = 1..)]
         pub rib_files: Vec<String>,
     }
