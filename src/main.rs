@@ -1,13 +1,11 @@
 // #![warn(missing_docs)]
 
-use log::info;
 #[cfg(not(target_env = "msvc"))]
 use tikv_jemallocator::Jemalloc;
 
 #[cfg(not(target_env = "msvc"))]
 #[global_allocator]
 static GLOBAL: Jemalloc = Jemalloc;
-
 use crate::ribs::rib_getter::RibFile;
 
 pub mod args;
