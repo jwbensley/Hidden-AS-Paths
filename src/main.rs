@@ -39,7 +39,10 @@ fn main() {
             .collect()
     };
 
-    let mut path_data = parse::rib_parser::get_path_data(&rib_files, &args.threads);
-    path_data.remove_single_paths();
-    //println!("{:#?}", path_data);
+    let path_data = parse::rib_parser::get_path_data(&rib_files, &args.threads);
+    println!(
+        "Remaining data is for {} origins with {} AS paths",
+        path_data.count_origins(),
+        path_data.count_as_paths()
+    );
 }

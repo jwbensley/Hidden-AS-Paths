@@ -136,7 +136,7 @@ pub mod path_data {
             if all_path_data.is_empty() {
                 panic!("No sequences to merge!");
             } else if all_path_data.len() == 1 {
-                debug!("Only 1 item, nothing to merge");
+                info!("Only 1 item, nothing to merge");
                 return all_path_data.pop().unwrap();
             }
 
@@ -164,6 +164,7 @@ pub mod path_data {
                     }
                 }
             }
+            info!("Merge complete");
             all_path_data.pop().unwrap()
         }
 
@@ -187,7 +188,7 @@ pub mod path_data {
                     to_remove.push(origin.to_owned());
                 }
             }
-            info!("Removing {} origins with single AS paths", to_remove.len(),);
+            debug!("Removing {} origins with single AS paths", to_remove.len(),);
             for key in to_remove.iter() {
                 self.remove_as_paths_for_origin(key);
             }

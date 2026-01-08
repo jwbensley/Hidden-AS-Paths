@@ -17,8 +17,10 @@ pub mod rib_parser {
 
     /// Given a list of RIB files, parse them and merge the results
     pub fn get_path_data(rib_files: &Vec<RibFile>, threads: &usize) -> PathData {
-        let all_path_data = parse_rib_files(rib_files, threads);
-        PathData::merge_path_data(all_path_data)
+        let all_mrts_path_data = parse_rib_files(rib_files, threads);
+        let mut merged_path_data = PathData::merge_path_data(all_mrts_path_data);
+        merged_path_data.remove_single_paths();
+        merged_path_data
     }
 
     /// Spin up a seperate tread for each MRT file which needs to be parsed
