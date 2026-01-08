@@ -25,15 +25,14 @@ fn main() {
         logging::setup_loggin("info");
     }
 
-    let rib_files: Vec<RibFile> = if args.ribs_source.rib_files.is_empty() {
+    let rib_files: Vec<RibFile> = if args.download() {
         ribs::rib_getter::download_ribs_for_day(args.get_ribs_ymd(), args.get_ribs_path())
     } else {
-        args.ribs_source
-            .rib_files
-            .into_iter()
+        args.get_rib_files()
+            .iter()
             .map(|filename| RibFile {
                 url: String::new(),
-                filename,
+                filename: filename.clone(),
             })
             .collect()
     };

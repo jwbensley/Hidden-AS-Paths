@@ -1,7 +1,9 @@
 pub mod cli_args {
-    use clap::{Args, Parser};
+    use clap::{Args, Parser, Subcommand};
 
-    #[derive(Debug, Args, Clone)]
+    /// Download RIB files by specifying an output folder and a date.
+    /// The downloaded files will then be parsed (existing files are not downloaded).
+    #[derive(Debug, Args)]
     pub struct DownloadArgs {
         /// Download RIBs to this directory
         #[arg(short = 'p', long, default_value_t = String::from("./mrts"))]
@@ -12,15 +14,18 @@ pub mod cli_args {
         pub ribs_ymd: String,
     }
 
+    /// Parse RIB files which aready exist locally.
     #[derive(Debug, Args)]
-    #[group(required = true, multiple = false)]
-    pub struct RibsSource {
-        #[command(flatten)]
-        pub download_args: DownloadArgs,
-
-        /// Glob of MRT files to parse (if not specified, all MRT files for specified date will be scanned)
+    pub struct FileArgs {
+        /// Glob of existing MRT files to parse (if not specified, all MRT files for specified date will be downloaded and parsed)
         #[arg(short = 'f', long, value_delimiter = ' ', num_args = 1..)]
         pub rib_files: Vec<String>,
+    }
+
+    #[derive(Subcommand, Debug)]
+    pub enum RibsSource {
+        Download(DownloadArgs),
+        File(FileArgs),
     }
 
     /// Scan MRT RIB dumps, looking for potential instances of ASN hidding
@@ -31,7 +36,7 @@ pub mod cli_args {
         #[arg(short, long)]
         pub debug: bool,
 
-        #[command(flatten)]
+        #[command(subcommand)]
         pub ribs_source: RibsSource,
 
         /// Number of threads to use for parsing MRT files
@@ -41,11 +46,31 @@ pub mod cli_args {
 
     impl CliArgs {
         pub fn get_ribs_path(&self) -> &str {
-            self.ribs_source.download_args.ribs_path.as_str()
+            if let RibsSource::Download(args) = &self.ribs_source {
+                args.ribs_path.as_str()
+            } else {
+                panic!("No CLI option to unpack");
+            }
         }
 
         pub fn get_ribs_ymd(&self) -> &str {
-            self.ribs_source.download_args.ribs_ymd.as_str()
+            if let RibsSource::Download(args) = &self.ribs_source {
+                args.ribs_ymd.as_str()
+            } else {
+                panic!("No CLI option to unpack");
+            }
+        }
+
+        pub fn get_rib_files(&self) -> &Vec<String> {
+            if let RibsSource::File(args) = &self.ribs_source {
+                &args.rib_files
+            } else {
+                panic!("No CLI option to unpack");
+            }
+        }
+
+        pub fn download(&self) -> bool {
+            matches!(self.ribs_source, RibsSource::Download(_))
         }
     }
 
