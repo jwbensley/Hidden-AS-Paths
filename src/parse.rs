@@ -1,6 +1,6 @@
 pub mod rib_parser {
-    use crate::data::path_data::PathData;
-    use crate::paths::as_paths::Route;
+    use crate::mrt_paths::path_data::PathData;
+    use crate::mrt_route::route::Route;
     use crate::ribs::rib_getter::RibFile;
     use bgpkit_parser::models::{
         AsPathSegment, Asn, AttrFlags, AttrType, Attribute, AttributeValue, Community,
@@ -297,13 +297,19 @@ pub mod rib_parser {
             parse_rib_entries(&mrt_entry, &mut path_data, &id_peer_map, &fp, &count);
 
             count += 1;
+
             ///////////////////////////////////////////////////////////////////////////////////////////////////
-            if count >= 2 {
-                break;
-            }
+            // if count >= 20 {
+            //     break;
+            // }
         }
 
-        info!("Parsed {} records in MRT file", count);
+        info!(
+            "Parsed {} records in MRT file. Found {} origins with {} AS paths.",
+            count,
+            path_data.count_origins(),
+            path_data.count_as_paths(),
+        );
 
         path_data
     }

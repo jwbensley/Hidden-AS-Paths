@@ -12,13 +12,10 @@ ipnet = "2.11.0"
 log = "0.4.29"
 rayon = "1.11.0"
 reqwest = { version = "0.13.1", features = ["blocking"] }
-# [target.'cfg(not(target_env = "msvc"))'.dependencies]
-# tikv-jemallocator = "0.6"
+[target.'cfg(not(target_env = "msvc"))'.dependencies]
+tikv-jemallocator = "0.6"
 
-# [profile.release]
-# codegen-units = 1
-# lto = "thin"
-# panic = "abort"
-# 
-# [build]
-# rustflags = ["-C", "target-cpu=native"]
+[profile.release]
+codegen-units = 1
+lto = "thin"
+panic = "abort"

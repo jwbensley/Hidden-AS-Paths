@@ -1,20 +1,22 @@
 // #![warn(missing_docs)]
 
-// #[cfg(not(target_env = "msvc"))]
-// use tikv_jemallocator::Jemalloc;
-//
-// #[cfg(not(target_env = "msvc"))]
-// #[global_allocator]
-// static GLOBAL: Jemalloc = Jemalloc;
+#[cfg(not(target_env = "msvc"))]
+use tikv_jemallocator::Jemalloc;
+
+#[cfg(not(target_env = "msvc"))]
+#[global_allocator]
+static GLOBAL: Jemalloc = Jemalloc;
 
 use crate::ribs::rib_getter::RibFile;
 
 pub mod args;
-pub mod data;
 pub mod http;
 pub mod logging;
+pub mod mrt_as_path;
+pub mod mrt_origin_as_paths;
+pub mod mrt_paths;
+pub mod mrt_route;
 pub mod parse;
-pub mod paths;
 pub mod ribs;
 
 fn main() {
@@ -37,5 +39,7 @@ fn main() {
             .collect()
     };
 
-    let _path_data = parse::rib_parser::get_path_data(&rib_files, &args.threads);
+    let mut path_data = parse::rib_parser::get_path_data(&rib_files, &args.threads);
+    path_data.remove_single_paths();
+    //println!("{:#?}", path_data);
 }

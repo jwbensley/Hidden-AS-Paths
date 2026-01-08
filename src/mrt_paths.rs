@@ -1,9 +1,12 @@
 pub mod path_data {
-    use crate::paths::as_paths::{AsPath, OriginAsPaths, Route};
+    use crate::mrt_as_path::as_path::AsPath;
+    use crate::mrt_origin_as_paths::origin_as_paths::OriginAsPaths;
+    use crate::mrt_route::route::Route;
     use bgpkit_parser::models::Asn;
+    use core::panic;
     use log::{debug, info};
     use std::collections::HashMap;
-    use std::collections::hash_map::Keys;
+    use std::collections::hash_map::{Keys, Values};
 
     /// Public API which provides access to all paths and routes.
     /// Store all AsPathCollections keyed by origin ASN.
@@ -55,6 +58,22 @@ pub mod path_data {
         fn add_route(&mut self, route: Route) {
             self.get_as_paths_for_origin_mut(route.get_origin())
                 .add_route(route);
+        }
+
+        pub fn count_as_paths(&self) -> usize {
+            let mut total = 0;
+            for origin_as_paths in self.get_as_paths() {
+                total += origin_as_paths.len();
+            }
+            total
+        }
+
+        pub fn count_origins(&self) -> usize {
+            self.as_paths.len()
+        }
+
+        fn get_as_paths(&self) -> Values<'_, Asn, OriginAsPaths> {
+            self.as_paths.values()
         }
 
         fn get_as_paths_for_origin(&self, origin: &Asn) -> &OriginAsPaths {
@@ -146,6 +165,32 @@ pub mod path_data {
                 }
             }
             all_path_data.pop().unwrap()
+        }
+
+        fn remove_as_paths_for_origin(&mut self, origin: &Asn) {
+            if self.has_as_paths_for_origin(origin) {
+                debug!("Removing AS paths for origin {}", origin);
+                self.as_paths.remove(origin);
+            } else {
+                panic!(
+                    "Attempt to remove AS paths for non-existing origin {}",
+                    origin
+                );
+            }
+        }
+
+        /// Remove origins which only have a single AS path
+        pub fn remove_single_paths(&mut self) {
+            let mut to_remove = Vec::new();
+            for origin in self.get_origins() {
+                if self.get_as_paths_for_origin(origin).len() == 1 {
+                    to_remove.push(origin.to_owned());
+                }
+            }
+            info!("Removing {} origins with single AS paths", to_remove.len(),);
+            for key in to_remove.iter() {
+                self.remove_as_paths_for_origin(key);
+            }
         }
     }
 }
