@@ -84,20 +84,18 @@ pub mod as_path {
 
         #[test]
         fn test_as_path_eq() {
+            // EQ with same default origin and default AS path
             let mut ap_1 = AsPath::get_mock(None);
             ap_1.add_route(Route::get_mock(None));
-
             let mut ap_2 = AsPath::get_mock(None);
             ap_2.add_route(Route::get_mock(None));
-
             assert_eq!(ap_1, ap_2);
 
+            // EQ with same explicit origin and explicit AS path
             ap_1 = AsPath::get_mock(Some(Asn::new_32bit(1)));
             ap_1.add_route(Route::get_mock(Some(Asn::new_32bit(1))));
-
             ap_2 = AsPath::get_mock(Some(Asn::new_32bit(1)));
             ap_2.add_route(Route::get_mock(Some(Asn::new_32bit(1))));
-
             assert_eq!(ap_1, ap_2);
         }
 
