@@ -1,4 +1,10 @@
 pub mod route {
+    use crate::mrt_asn::asn::Testing as AsnTesting;
+    use crate::mrt_community::communities::get_mock as get_mock_communities;
+    use crate::mrt_ip_addr::ip_addr::Testing as IpAddrTesting;
+    use crate::mrt_ip_net::ip_net::Testing as IpNetTesting;
+    use crate::mrt_large_community::large_communities::get_mock as get_mock_large_communities;
+    use crate::mrt_peer::peer::Testing as PeerTesting;
     use bgpkit_parser::models::{Asn, Community, LargeCommunity, Peer};
     use ipnet::IpNet;
     use std::net::IpAddr;
@@ -43,6 +49,24 @@ pub mod route {
                 prefix,
                 communities,
                 large_communities,
+            }
+        }
+
+        pub fn get_mock(origin: Option<Asn>) -> Route {
+            let as_path = Vec::from([
+                Asn::get_mock(Some(1)),
+                Asn::get_mock(Some(2)),
+                origin.unwrap_or(Asn::get_mock(None)),
+            ]);
+
+            Route {
+                as_path,
+                filename: String::from("unit test"),
+                next_hop: IpAddr::get_mock(),
+                peer: Peer::get_mock(),
+                prefix: IpNet::get_mock(),
+                communities: get_mock_communities(None),
+                large_communities: get_mock_large_communities(None),
             }
         }
 

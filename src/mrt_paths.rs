@@ -9,7 +9,7 @@ pub mod path_data {
     use std::collections::hash_map::{Keys, Values};
 
     /// Public API which provides access to all paths and routes.
-    /// Store all AsPathCollections keyed by origin ASN.
+    /// Store all OriginAsPaths keyed by origin ASN.
     #[derive(Debug)]
     pub struct PathData {
         as_paths: HashMap<Asn, OriginAsPaths>,
@@ -60,20 +60,22 @@ pub mod path_data {
                 .add_route(route);
         }
 
-        pub fn count_as_paths(&self) -> usize {
+        pub fn find_origins_with_overlapping_paths(&self) {
+            for origin_as_paths in self.get_as_paths() {
+                origin_as_paths.find_overlapping_paths();
+            }
+        }
+
+        fn get_as_paths(&self) -> Values<'_, Asn, OriginAsPaths> {
+            self.as_paths.values()
+        }
+
+        pub fn get_as_paths_count(&self) -> usize {
             let mut total = 0;
             for origin_as_paths in self.get_as_paths() {
                 total += origin_as_paths.len();
             }
             total
-        }
-
-        pub fn count_origins(&self) -> usize {
-            self.as_paths.len()
-        }
-
-        fn get_as_paths(&self) -> Values<'_, Asn, OriginAsPaths> {
-            self.as_paths.values()
         }
 
         fn get_as_paths_for_origin(&self, origin: &Asn) -> &OriginAsPaths {
@@ -94,6 +96,10 @@ pub mod path_data {
 
         fn get_origins(&self) -> Keys<'_, Asn, OriginAsPaths> {
             self.as_paths.keys()
+        }
+
+        pub fn get_origins_count(&self) -> usize {
+            self.as_paths.len()
         }
 
         fn has_as_paths_for_origin(&self, origin: &Asn) -> bool {
@@ -122,6 +128,7 @@ pub mod path_data {
             }
         }
 
+        /// Copy all origins and their AS paths from other to self
         pub fn merge_from(&mut self, other: &Self) {
             for origin in other.get_origins() {
                 self.add_origin_as_paths(origin, other.get_as_paths_for_origin(origin));
@@ -132,8 +139,8 @@ pub mod path_data {
         /// then merge the remaining objs in pairs. Continue until only one obj is left.
         pub fn merge_path_data(mut all_path_data: Vec<PathData>) -> PathData {
             info!("Merging {} objects", all_path_data.len());
-            let origins: usize = all_path_data.iter().map(|d| d.count_origins()).sum();
-            let as_paths: usize = all_path_data.iter().map(|d| d.count_as_paths()).sum();
+            let origins: usize = all_path_data.iter().map(|d| d.get_origins_count()).sum();
+            let as_paths: usize = all_path_data.iter().map(|d| d.get_as_paths_count()).sum();
             info!("Pre-merge, {} origins, {} AS paths", origins, as_paths);
 
             if all_path_data.is_empty() {
@@ -172,8 +179,8 @@ pub mod path_data {
             let path_data = all_path_data.pop().unwrap();
             info!(
                 "Post-merge, {} origins, {} AS paths",
-                path_data.count_origins(),
-                path_data.count_as_paths()
+                path_data.get_origins_count(),
+                path_data.get_as_paths_count()
             );
 
             path_data
@@ -192,8 +199,8 @@ pub mod path_data {
         }
 
         /// Remove origins which only have a single AS path
-        pub fn remove_single_as_paths(&mut self) {
-            info!("Removing single AS paths");
+        pub fn remove_origins_with_single_as_path(&mut self) {
+            info!("Removing origins with only one AS path");
 
             let mut to_remove = Vec::new();
             for origin in self.get_origins() {
@@ -202,15 +209,31 @@ pub mod path_data {
                 }
             }
 
-            debug!("Removing {} origins with single AS paths", to_remove.len(),);
-            for key in to_remove.iter() {
-                self.remove_as_paths_for_origin(key);
+            debug!("Removing {} origins with single AS path", to_remove.len(),);
+            for origin in to_remove.iter() {
+                self.remove_as_paths_for_origin(origin);
             }
 
             info!(
                 "Remaining multi-path origins {}, with {} AS paths",
-                self.count_origins(),
-                self.count_as_paths()
+                self.get_origins_count(),
+                self.get_as_paths_count()
+            );
+        }
+
+        /// Remove AS Paths which only have a single ASN in the path
+        pub fn remove_single_hop_as_paths(&mut self) {
+            info!("Removing single-hop AS paths");
+
+            for mut origin_as_paths in self.get_as_paths().cloned().collect::<Vec<OriginAsPaths>>()
+            {
+                origin_as_paths.remove_single_hop_paths();
+            }
+
+            info!(
+                "Remaining origins {}, with {} multi-hop AS paths",
+                self.get_origins_count(),
+                self.get_as_paths_count()
             );
         }
     }
