@@ -12,11 +12,18 @@ pub mod args;
 pub mod http;
 pub mod logging;
 pub mod mrt_as_path;
+pub mod mrt_asn;
+pub mod mrt_community;
+pub mod mrt_ip_addr;
+pub mod mrt_ip_net;
+pub mod mrt_large_community;
 pub mod mrt_origin_as_paths;
 pub mod mrt_paths;
+pub mod mrt_peer;
 pub mod mrt_route;
 pub mod parse;
 pub mod ribs;
+pub mod search;
 
 fn main() {
     let args = args::cli_args::parse_cli_arg();
@@ -38,5 +45,6 @@ fn main() {
             .collect()
     };
 
-    let _path_data = parse::rib_parser::get_path_data(&rib_files, &args.threads);
+    let path_data = parse::rib_parser::get_path_data(&rib_files, &args.threads);
+    search::path_search::find_paths(&path_data);
 }

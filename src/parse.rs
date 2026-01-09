@@ -15,11 +15,12 @@ pub mod rib_parser {
     use std::collections::HashMap;
     use std::net::IpAddr;
 
-    /// Given a list of RIB files, parse them and merge the results
+    /// Given a list of RIB files, parse them, merge the results, and strip and redundant data
     pub fn get_path_data(rib_files: &Vec<RibFile>, threads: &usize) -> PathData {
         let all_mrts_path_data = parse_rib_files(rib_files, threads);
         let mut merged_path_data = PathData::merge_path_data(all_mrts_path_data);
-        merged_path_data.remove_single_as_paths();
+        merged_path_data.remove_single_hop_as_paths();
+        merged_path_data.remove_origins_with_single_as_path();
         merged_path_data
     }
 
@@ -300,118 +301,13 @@ pub mod rib_parser {
         }
 
         info!(
-            "Parsed {} records in MRT file. Found {} origins with {} AS paths.",
+            "Parsed {} records in {}. Found {} origins with {} AS paths.",
             count,
-            path_data.count_origins(),
-            path_data.count_as_paths(),
+            fp,
+            path_data.get_origins_count(),
+            path_data.get_as_paths_count(),
         );
 
         path_data
     }
 }
-
-/*
-MrtRecord {
-    common_header: CommonHeader {
-        timestamp: 1758499201,
-        microsecond_timestamp: None,
-        entry_type: TABLE_DUMP_V2,
-        entry_subtype: 1,
-        length: 1679
-    },
-    message: TableDumpV2Message(
-        PeerIndexTable(
-            PeerIndexTable {
-                collector_bgp_id: 80.249.213.84,
-                view_name: "VRF default",
-                id_peer_map: {
-                    76: Peer {
-                        peer_type: PeerType(AS_SIZE_32BIT | ADDRESS_FAMILY_IPV6),
-                        peer_bgp_id: 188.122.95.123,
-                        peer_address: 2001:7f8:1::a504:9544:1,
-                        peer_asn: 49544
-                    },
-                    38: Peer {
-                        peer_type: PeerType(AS_SIZE_32BIT),
-                        peer_bgp_id: 134.55.200.236,
-                        peer_address: 80.249.213.7,
-                        peer_asn: 293
-                    },
-                    ...
-                }
-            }
-        )
-    )
-}
-
-IPv4
-MrtRecord {
-    common_header: CommonHeader {
-        timestamp: 1758499201,
-        microsecond_timestamp: None,
-        entry_type: TABLE_DUMP_V2,
-        entry_subtype: 2,
-        length: 80
-    },
-    message: TableDumpV2Message(
-        RibAfi(
-            RibAfiEntries {
-                rib_type: RibIpv4Unicast,
-                sequence_number: 0,
-                prefix: 0.0.0.0/0,
-                rib_entries: [
-                    RibEntry {
-                        peer_index: 41,
-                        originated_time: 1756151844,
-                        attributes: Attributes {
-                            inner: [
-                                Attribute {
-                                    value: Origin(IGP),
-                                    flag: AttrFlags(TRANSITIVE)
-                                },
-                                Attribute {
-                                    value: AsPath {
-                                        path: AsPath {
-                                            segments: [
-                                                AsSequence([64289, 6762])
-                                            ]
-                                        },
-                                        is_as4: false
-                                    },
-                                    flag: AttrFlags(TRANSITIVE | EXTENDED)
-                                },
-                                Attribute {
-                                    value: NextHop(80.249.214.73),
-                                    flag: AttrFlags(TRANSITIVE)
-                                },
-                                Attribute {
-                                    value: Communities([Custom(64289, 1000)]),
-                                    flag: AttrFlags(OPTIONAL | TRANSITIVE)
-                                }
-                            ]
-                        }
-                    },
-                    RibEntry { peer_index: 29, originated_time: 1757942513, attributes: Attributes { inner: [Attribute { value: Origin(IGP), flag: AttrFlags(TRANSITIVE) }, Attribute { value: AsPath { path: AsPath { segments: [AsSequence([61049, 3257])] }, is_as4: false }, flag: AttrFlags(TRANSITIVE | EXTENDED) }, Attribute { value: NextHop(80.249.210.252), flag: AttrFlags(TRANSITIVE) }] } }
-                ]
-            }
-        )
-    )
-}
-
-IPv6
-Attribute {
-  value: MpReachNlri(
-    Nlri {
-      afi: Ipv6,
-      safi: Unicast,
-      next_hop: Some(
-        Ipv6LinkLocal(2001:7f8:1:0:a500:32:8832:1, fe80::4201:7aff:fe41:a186)
-      ),
-      prefixes: [200:1900:5203::/56]
-    }
-  ),
-  flag: AttrFlags(OPTIONAL)
-}
-
-
- */
