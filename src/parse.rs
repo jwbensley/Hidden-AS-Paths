@@ -259,8 +259,8 @@ pub mod rib_parser {
                         next_hop,
                         id_peer_map[&rib_entry.peer_index],
                         rib_entries.prefix.prefix,
-                        communities.clone(),
-                        large_communities.clone(),
+                        // communities.clone(),
+                        // large_communities.clone(),
                     ));
                 }
             } else {
@@ -270,8 +270,8 @@ pub mod rib_parser {
                     next_hop,
                     id_peer_map[&rib_entry.peer_index],
                     rib_entries.prefix.prefix,
-                    communities.clone(),
-                    large_communities.clone(),
+                    // communities.clone(),
+                    // large_communities.clone(),
                 ));
             }
         }
