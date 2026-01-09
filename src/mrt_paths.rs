@@ -62,7 +62,11 @@ pub mod path_data {
 
         pub fn find_origins_with_overlapping_paths(&self) {
             for origin_as_paths in self.get_as_paths() {
-                origin_as_paths.find_overlapping_paths();
+                let overlapping_paths = origin_as_paths.find_overlapping_paths();
+                println!("{:#?}", overlapping_paths);
+                if true {
+                    break;
+                }
             }
         }
 

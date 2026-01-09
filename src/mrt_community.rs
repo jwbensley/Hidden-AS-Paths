@@ -14,6 +14,8 @@ pub mod community {
 }
 
 pub mod communities {
+    use std::vec::Vec;
+
     use bgpkit_parser::models::{Asn, Community};
 
     pub fn get_mock(community: Option<(Asn, u16)>) -> Vec<Community> {

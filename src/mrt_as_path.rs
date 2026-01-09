@@ -3,9 +3,10 @@ pub mod as_path {
     use crate::mrt_route::route::Route;
     use bgpkit_parser::models::Asn;
     use log::debug;
+    use std::hash::Hash;
 
     /// A deduped AS path which stores one or more routes
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, Eq)]
     pub struct AsPath {
         as_path: Vec<Asn>,
         routes: Vec<Route>,
@@ -14,6 +15,13 @@ pub mod as_path {
     impl PartialEq for AsPath {
         fn eq(&self, other: &Self) -> bool {
             (self.routes == other.routes) && (self.as_path == other.as_path)
+        }
+    }
+
+    impl Hash for AsPath {
+        fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+            self.as_path.hash(state);
+            self.routes.hash(state);
         }
     }
 
@@ -32,7 +40,7 @@ pub mod as_path {
                 Asn::get_mock(Some(2)),
                 origin.unwrap_or(Asn::get_mock(None)),
             ]);
-            AsPath::new(Vec::from(as_path))
+            AsPath::new(as_path)
         }
 
         pub fn add_route(&mut self, route: Route) {

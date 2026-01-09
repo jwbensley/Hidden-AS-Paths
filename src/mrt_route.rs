@@ -7,18 +7,19 @@ pub mod route {
     use crate::mrt_peer::peer::Testing as PeerTesting;
     use bgpkit_parser::models::{Asn, Community, LargeCommunity, Peer};
     use ipnet::IpNet;
+    use std::hash::Hash;
     use std::net::IpAddr;
 
     /// Store a route pulled from an MRT file (one route object per prefix)
-    #[derive(Clone, Debug)]
+    #[derive(Clone, Debug, Eq)]
     pub struct Route {
         as_path: Vec<Asn>,
         filename: String,
         next_hop: IpAddr,
         peer: Peer,
         prefix: IpNet,
-        communities: Vec<Community>,
-        large_communities: Vec<LargeCommunity>,
+        // communities: Vec<Community>,
+        // large_communities: Vec<LargeCommunity>,
     }
 
     impl PartialEq for Route {
@@ -28,6 +29,18 @@ pub mod route {
                 && (self.next_hop == other.next_hop)
                 && (self.peer == other.peer)
                 && (self.prefix == other.prefix)
+            // && (self.communities == other.communities)
+            // && (self.large_communities == other.large_communities)
+        }
+    }
+
+    impl Hash for Route {
+        fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+            self.as_path.hash(state);
+            self.filename.hash(state);
+            self.next_hop.hash(state);
+            self.peer.hash(state);
+            self.prefix.hash(state);
         }
     }
 
@@ -38,8 +51,8 @@ pub mod route {
             next_hop: IpAddr,
             peer: Peer,
             prefix: IpNet,
-            communities: Vec<Community>,
-            large_communities: Vec<LargeCommunity>,
+            // communities: Vec<Community>,
+            // large_communities: Vec<LargeCommunity>,
         ) -> Self {
             Self {
                 as_path,
@@ -47,8 +60,8 @@ pub mod route {
                 next_hop,
                 peer,
                 prefix,
-                communities,
-                large_communities,
+                // communities,
+                // large_communities,
             }
         }
 
@@ -65,8 +78,8 @@ pub mod route {
                 next_hop: IpAddr::get_mock(),
                 peer: Peer::get_mock(),
                 prefix: IpNet::get_mock(),
-                communities: get_mock_communities(None),
-                large_communities: get_mock_large_communities(None),
+                // communities: get_mock_communities(None),
+                // large_communities: get_mock_large_communities(None),
             }
         }
 
@@ -74,13 +87,13 @@ pub mod route {
             &self.as_path
         }
 
-        pub fn get_communities(&self) -> &Vec<Community> {
-            &self.communities
-        }
+        // pub fn get_communities(&self) -> &Vec<Community> {
+        //     &self.communities
+        // }
 
-        pub fn get_large_communities(&self) -> &Vec<LargeCommunity> {
-            &self.large_communities
-        }
+        // pub fn get_large_communities(&self) -> &Vec<LargeCommunity> {
+        //     &self.large_communities
+        // }
 
         pub fn get_origin(&self) -> &Asn {
             self.as_path.last().unwrap()

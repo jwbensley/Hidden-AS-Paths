@@ -47,9 +47,8 @@ pub mod origin_as_paths {
             self.get_as_path_mut(&as_path).add_route(route);
         }
 
-        pub fn find_overlapping_paths(&self) {
-            let overlapping_paths: HashMap<AsPath, Vec<AsPath>> =
-                HashMap::<AsPath, Vec<AsPath>>::new();
+        pub fn find_overlapping_paths(&self) -> HashMap<AsPath, Vec<&AsPath>> {
+            let mut overlapping_paths: HashMap<AsPath, Vec<&AsPath>> = HashMap::new();
 
             for a in self.get_as_paths() {
                 for b in self.get_as_paths() {
@@ -57,10 +56,14 @@ pub mod origin_as_paths {
                         continue;
                     };
                     if a.has_overlap_with(b) {
-                        //overlapping_paths.push()
+                        if !overlapping_paths.contains_key(a) {
+                            overlapping_paths.insert(a.clone(), Vec::new());
+                        };
+                        overlapping_paths.get_mut(a).unwrap().push(b);
                     }
                 }
             }
+            overlapping_paths
         }
 
         fn get_as_paths(&self) -> &Vec<AsPath> {
