@@ -1,7 +1,7 @@
 use std::io::Write;
 
-pub fn setup_loggin(level: &str) {
-        env_logger::Builder::from_env(env_logger::Env::default().default_filter_or(level))
+pub fn setup_logging(level: &str) {
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or(level))
         .format(|buf, record| {
             let ts = buf.timestamp_micros();
             writeln!(
