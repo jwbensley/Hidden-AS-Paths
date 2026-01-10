@@ -155,7 +155,11 @@ pub mod path_data {
                 return all_path_data.pop().unwrap();
             }
 
+            // Merge pairs of PathData objects then loop over all_path_data and delete every 2nd object.
+            // Repeat until there is only one object left.
             while all_path_data.len() > 1 {
+                debug!("{} item(s) left to merge", all_path_data.len());
+
                 for chunks in all_path_data.chunks_mut(2) {
                     if let [seq1, seq2] = chunks {
                         seq1.merge_from(seq2);
