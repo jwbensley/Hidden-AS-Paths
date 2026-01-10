@@ -60,10 +60,11 @@ pub mod path_data {
                 .add_route(route);
         }
 
-        pub fn find_origins_with_overlapping_paths(&self) {
+        pub fn find_origins_with_divergent_paths(&self) {
+            info!("Searching for divergent paths");
             for origin_as_paths in self.get_as_paths() {
-                let overlapping_paths = origin_as_paths.find_overlapping_paths();
-                println!("{:#?}", overlapping_paths);
+                let divergent_paths = origin_as_paths.find_divergent_paths();
+                println!("{:#?}", divergent_paths);
                 if true {
                     break;
                 }

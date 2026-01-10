@@ -47,23 +47,29 @@ pub mod origin_as_paths {
             self.get_as_path_mut(&as_path).add_route(route);
         }
 
-        pub fn find_overlapping_paths(&self) -> HashMap<AsPath, Vec<&AsPath>> {
-            let mut overlapping_paths: HashMap<AsPath, Vec<&AsPath>> = HashMap::new();
+        pub fn find_divergent_paths(&self) -> HashMap<AsPath, Vec<&AsPath>> {
+            let mut divergent_paths: HashMap<AsPath, Vec<&AsPath>> = HashMap::new();
+
+            let mut checked = Vec::<&AsPath>::new();
 
             for a in self.get_as_paths() {
                 for b in self.get_as_paths() {
                     if a == b {
                         continue;
                     };
-                    if a.has_overlap_with(b) {
-                        if !overlapping_paths.contains_key(a) {
-                            overlapping_paths.insert(a.clone(), Vec::new());
+                    if checked.contains(&a) {
+                        continue;
+                    }
+                    if a.has_divergence_with(b) {
+                        if !divergent_paths.contains_key(a) {
+                            divergent_paths.insert(a.clone(), Vec::new());
                         };
-                        overlapping_paths.get_mut(a).unwrap().push(b);
+                        divergent_paths.get_mut(a).unwrap().push(b);
                     }
                 }
+                checked.push(a);
             }
-            overlapping_paths
+            divergent_paths
         }
 
         fn get_as_paths(&self) -> &Vec<AsPath> {
