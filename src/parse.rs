@@ -24,7 +24,7 @@ pub mod rib_parser {
         merged_path_data
     }
 
-    /// Spin up a seperate tread for each MRT file which needs to be parsed
+    /// Spin up a separate tread for each MRT file which needs to be parsed
     pub fn parse_rib_files(rib_files: &Vec<RibFile>, threads: &u32) -> Vec<PathData> {
         info!("Paring {} RIB files", rib_files.len());
         debug!(
@@ -40,10 +40,13 @@ pub mod rib_parser {
             .build_global()
             .unwrap();
 
-        rib_files
+        let path_data = rib_files
             .into_par_iter()
             .map(|rib_file| parse_rib_file(rib_file.filename.clone()))
-            .collect()
+            .collect();
+
+        info!("All RIB files parse");
+        path_data
     }
 
     /// Return the mapping of peer IDs to peer details
@@ -200,18 +203,11 @@ pub mod rib_parser {
             }
         }
 
-        if as_sequence.is_empty() {
-            if as_set.is_empty() {
-                panic!(
-                    "AS sequence and AS set are both undefined in file {} ({}): {:#?}",
-                    fp, count, rib_entry
-                );
-            } else {
-                panic!(
-                    "AS set defined without an AS sequence in file {} ({}): {:#?}",
-                    fp, count, rib_entry
-                );
-            }
+        if as_sequence.is_empty() && !as_set.is_empty() {
+            panic!(
+                "AS set defined without an AS sequence in file {} ({}): {:#?}",
+                fp, count, rib_entry
+            );
         }
 
         (as_sequence, as_set)
@@ -245,6 +241,14 @@ pub mod rib_parser {
             // (the AS Sequence + the AsSet ASN) and record the prefix as being available
             // via multiple AS Paths.
             let (as_sequence, as_set) = get_as_path_chunks(rib_entry, fp, count);
+
+            if as_sequence.is_empty() && as_set.is_empty() {
+                debug!(
+                    "Skipping empty AS sequence and empty AS set, assuming iBGP path in file {} ({}): {:#?}",
+                    fp, count, rib_entry
+                );
+                continue;
+            }
 
             if !as_set.is_empty() {
                 for asn in &as_set {

@@ -16,7 +16,7 @@ pub mod http_client {
             return;
         }
 
-        debug!("GET'ing URL {}", url);
+        info!("GET'ing URL {}", url);
 
         let client = Client::builder()
             .timeout(Duration::from_secs(300)) // Increase default timeout

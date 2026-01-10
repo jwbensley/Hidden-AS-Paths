@@ -22,15 +22,21 @@ pub mod mrt_paths;
 pub mod mrt_peer;
 pub mod mrt_route;
 pub mod parse;
+pub mod print;
 pub mod ribs;
 pub mod search;
 
 fn main() {
     let args = args::cli_args::parse_cli_arg();
     if args.debug {
-        logging::setup_loggin("debug");
+        logging::setup_logging("debug");
     } else {
-        logging::setup_loggin("info");
+        logging::setup_logging("info");
+    }
+
+    if args.print() {
+        print::print_entry(args.get_mrt_index(), args.get_rib_file());
+        return;
     }
 
     let rib_files: Vec<RibFile> = if args.download() {
