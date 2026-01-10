@@ -41,7 +41,7 @@ pub mod cli_args {
 
         /// Number of threads to use for parsing MRT files
         #[arg(short, long, default_value_t = 1)]
-        pub threads: usize,
+        pub threads: u32,
     }
 
     impl CliArgs {

@@ -58,13 +58,21 @@ pub mod as_path {
             &self.as_path
         }
 
-        /// Overlap means that both AS paths have an ASN which occurs somewhere in both paths,
-        /// but not the last ASN (the origin), that is gaurenteed to be the same ASN.
-        pub fn has_overlap_with(&self, other: &AsPath) -> bool {
-            assert_ne!(self, other, "Trying to compare the same AS Paths");
+        /// The same ASN appears somewhere in both AS Paths (not the final, origin, ASN),
+        /// that is gaurenteed to be the same ASN. From the point of this shared ASN to
+        /// the origin, the path must be different:
+        /// a = [1, 2, 3]
+        /// b = [4, 2, 5, 3]
+        ///         ^  ^
+        pub fn has_divergence_with(&self, other: &AsPath) -> bool {
+            let a_path = self.get_asns().split_last().unwrap().1;
+            let b_path = other.get_asns().split_last().unwrap().1;
 
-            for asn in self.get_asns().split_last().unwrap().1 {
-                if other.get_asns().split_last().unwrap().1.contains(asn) {
+            for a_asn in a_path {
+                let a_pos = a_path.iter().position(|x| x == a_asn).unwrap();
+                let b_pos = b_path.iter().position(|x| x == a_asn);
+
+                if b_pos.is_some() && a_path[a_pos..] != b_path[b_pos.unwrap()..] {
                     return true;
                 }
             }
@@ -126,6 +134,41 @@ pub mod as_path {
             ap_2 = AsPath::get_mock(Some(Asn::new_32bit(1)));
             ap_1.add_route(Route::get_mock(Some(Asn::new_32bit(2))));
             assert_ne!(ap_1, ap_2);
+        }
+
+        #[test]
+        fn test_has_divergence_with() {
+            // Shared ASNs - no divergent paths
+            let ap_1 = AsPath::get_mock(None);
+            let ap_2 = AsPath::get_mock(None);
+            assert!(ap_1.len() >= 3);
+            assert_eq!(ap_1.get_as_path(), ap_2.get_as_path());
+            assert!(!ap_1.has_divergence_with(&ap_2));
+
+            // Shared ASNs - divergent paths
+            let mut path_2: Vec<Asn> = ap_1.get_as_path().clone();
+            path_2.insert(ap_1.len() - 1, Asn::new_32bit(23456));
+            let ap_2 = AsPath::new(path_2);
+            assert_ne!(ap_1.get_as_path(), ap_2.get_as_path());
+            assert!(ap_1.len() >= 3);
+            assert!(ap_2.len() >= 3);
+            assert!(ap_1.has_divergence_with(&ap_2));
+
+            // No shared ASNs - no divergent paths
+            let ap_1 = AsPath::new(Vec::from([
+                Asn::new_32bit(1),
+                Asn::new_32bit(2),
+                Asn::new_32bit(3),
+            ]));
+            let ap_2 = AsPath::new(Vec::from([
+                Asn::new_32bit(4),
+                Asn::new_32bit(5),
+                Asn::new_32bit(6),
+            ]));
+            assert_ne!(ap_1.get_as_path(), ap_2.get_as_path());
+            assert!(ap_1.len() == 3);
+            assert!(ap_2.len() == 3);
+            assert!(!ap_1.has_divergence_with(&ap_2));
         }
     }
 }

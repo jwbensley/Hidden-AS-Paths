@@ -16,7 +16,7 @@ pub mod rib_parser {
     use std::net::IpAddr;
 
     /// Given a list of RIB files, parse them, merge the results, and strip and redundant data
-    pub fn get_path_data(rib_files: &Vec<RibFile>, threads: &usize) -> PathData {
+    pub fn get_path_data(rib_files: &Vec<RibFile>, threads: &u32) -> PathData {
         let all_mrts_path_data = parse_rib_files(rib_files, threads);
         let mut merged_path_data = PathData::merge_path_data(all_mrts_path_data);
         merged_path_data.remove_single_hop_as_paths();
@@ -25,27 +25,25 @@ pub mod rib_parser {
     }
 
     /// Spin up a seperate tread for each MRT file which needs to be parsed
-    pub fn parse_rib_files(rib_files: &Vec<RibFile>, threads: &usize) -> Vec<PathData> {
+    pub fn parse_rib_files(rib_files: &Vec<RibFile>, threads: &u32) -> Vec<PathData> {
+        info!("Paring {} RIB files", rib_files.len());
         debug!(
-            "Parsing {} RIB files: {:?}",
-            rib_files.len(),
+            "{:?}",
             rib_files
                 .iter()
                 .map(|x| &x.filename)
                 .collect::<Vec<&String>>()
         );
 
-        let pool = ThreadPoolBuilder::new()
-            .num_threads(*threads)
-            .build()
+        ThreadPoolBuilder::new()
+            .num_threads((*threads).try_into().unwrap())
+            .build_global()
             .unwrap();
 
-        pool.install(|| {
-            rib_files
-                .into_par_iter()
-                .map(|rib_file| parse_rib_file(rib_file.filename.clone()))
-        })
-        .collect()
+        rib_files
+            .into_par_iter()
+            .map(|rib_file| parse_rib_file(rib_file.filename.clone()))
+            .collect()
     }
 
     /// Return the mapping of peer IDs to peer details
@@ -239,8 +237,8 @@ pub mod rib_parser {
 
         for rib_entry in &rib_entries.rib_entries {
             let next_hop = get_next_hop(rib_entry, fp, count);
-            let communities = get_communities(rib_entry);
-            let large_communities = get_large_communities(rib_entry);
+            //////// let communities = get_communities(rib_entry);
+            //////// let large_communities = get_large_communities(rib_entry);
 
             // Split each AS path segment into an AsSequence and AsSet.
             // If an AsSet is defined, for each ASN in the set, create a unique AS path
