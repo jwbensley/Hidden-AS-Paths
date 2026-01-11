@@ -6,7 +6,7 @@ pub mod path_data {
     use core::panic;
     use log::{debug, info};
     use std::collections::HashMap;
-    use std::collections::hash_map::{Keys, Values};
+    use std::collections::hash_map::{Keys, Values, ValuesMut};
 
     /// Public API which provides access to all paths and routes.
     /// Store all OriginAsPaths keyed by origin ASN.
@@ -73,6 +73,10 @@ pub mod path_data {
 
         fn get_as_paths(&self) -> Values<'_, Asn, OriginAsPaths> {
             self.as_paths.values()
+        }
+
+        fn get_as_paths_mut(&mut self) -> ValuesMut<'_, Asn, OriginAsPaths> {
+            self.as_paths.values_mut()
         }
 
         pub fn get_as_paths_count(&self) -> usize {
@@ -247,8 +251,7 @@ pub mod path_data {
         pub fn remove_single_hop_as_paths(&mut self) {
             info!("Removing single-hop AS paths");
 
-            for mut origin_as_paths in self.get_as_paths().cloned().collect::<Vec<OriginAsPaths>>()
-            {
+            for mut origin_as_paths in self.get_as_paths_mut() {
                 origin_as_paths.remove_single_hop_paths();
             }
 
