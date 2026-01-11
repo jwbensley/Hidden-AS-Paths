@@ -25,10 +25,10 @@ pub mod route {
     impl PartialEq for Route {
         fn eq(&self, other: &Self) -> bool {
             (self.as_path == other.as_path)
-                && (self.filename == other.filename)
                 && (self.next_hop == other.next_hop)
                 && (self.peer == other.peer)
                 && (self.prefix == other.prefix)
+            // && (self.filename == other.filename)
             // && (self.communities == other.communities)
             // && (self.large_communities == other.large_communities)
         }
