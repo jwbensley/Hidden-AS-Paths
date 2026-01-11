@@ -140,6 +140,15 @@ pub mod path_data {
             }
         }
 
+        /// Move all origins and their AS paths from other to self
+        pub fn move_from(&mut self, other: &mut Self) {
+            let origins: Vec<Asn> = other.get_origins().cloned().collect();
+
+            for origin in origins {
+                self.add_origin_as_paths(&origin, &other.pop_as_paths_for_origin(&origin));
+            }
+        }
+
         /// Merge pairs of PathData objs, delete the 2nd object from each pair,
         /// then merge the remaining objs in pairs. Continue until only one obj is left.
         pub fn merge_path_data(mut all_path_data: Vec<PathData>) -> PathData {
@@ -162,7 +171,7 @@ pub mod path_data {
 
                 for chunks in all_path_data.chunks_mut(2) {
                     if let [seq1, seq2] = chunks {
-                        seq1.merge_from(seq2);
+                        seq1.move_from(seq2);
                     }
                 }
 
@@ -193,6 +202,10 @@ pub mod path_data {
             );
 
             path_data
+        }
+
+        pub fn pop_as_paths_for_origin(&mut self, origin: &Asn) -> OriginAsPaths {
+            self.as_paths.remove(origin).unwrap()
         }
 
         fn remove_as_paths_for_origin(&mut self, origin: &Asn) {

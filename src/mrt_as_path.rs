@@ -59,7 +59,7 @@ pub mod as_path {
         }
 
         /// The same ASN appears somewhere in both AS Paths (not the final, origin, ASN),
-        /// that is gaurenteed to be the same ASN. From the point of this shared ASN to
+        /// that is guaranteed to be the same ASN. From the point of this shared ASN to
         /// the origin, the path must be different:
         /// a = [1, 2, 3]
         /// b = [4, 2, 5, 3]
@@ -72,7 +72,10 @@ pub mod as_path {
                 let a_pos = a_path.iter().position(|x| x == a_asn).unwrap();
                 let b_pos = b_path.iter().position(|x| x == a_asn);
 
-                if b_pos.is_some() && a_path[a_pos..] != b_path[b_pos.unwrap()..] {
+                if let Some(b_pos) = b_pos
+                    && a_path[a_pos..] != b_path[b_pos..]
+                    && (a_path.len() - a_pos != b_path.len() - b_pos)
+                {
                     return true;
                 }
             }
