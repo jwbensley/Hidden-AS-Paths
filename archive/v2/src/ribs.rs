@@ -31,7 +31,7 @@ pub mod rib_getter {
         }
     }
 
-    /// Return a list of availabe RIBs for a specific day (with details like download URL)
+    /// Return a list of available RIBs for a specific day (with details like download URL)
     fn get_rib_list_for_day(date: &str, dir: &str) -> Vec<RibFile> {
         let broker = BgpkitBroker::new().ts_start(date).ts_end(date);
         let ribs = broker.daily_ribs().unwrap();
