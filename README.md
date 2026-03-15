@@ -1,6 +1,6 @@
 # Hidden AS Hops
 
-Searching for hidden ASNs in BGP AS Paths...
+Searching for BGP AS Paths with stripped ASNs...
 
 ```shell
 cargo build
