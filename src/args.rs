@@ -49,7 +49,7 @@ pub mod cli_args {
         pub ribs_source: RibsSource,
 
         /// Serialise found AS paths to a JSON file
-        #[arg(long, default_value_t = String::from("./results/paths.json"))]
+        #[arg(long, default_value_t = String::from("./paths.json"))]
         pub paths: String,
 
         /// Number of threads to use for parsing files
