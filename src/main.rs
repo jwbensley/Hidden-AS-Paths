@@ -1,18 +1,15 @@
 pub mod args;
+pub mod data;
 pub mod file;
 pub mod http;
 pub mod logging;
-pub mod mrt_as_path;
-pub mod mrt_asn;
-pub mod mrt_communities;
-pub mod mrt_peer;
-pub mod mrt_route;
-pub mod origin_as_paths;
+pub mod mrt_data;
+pub mod mrt_types;
 pub mod parse_mrt;
 pub mod parse_threaded;
 pub mod ribs;
 
-use crate::parse_threaded::threaded_parser::init_parallel_parsing;
+use crate::parse_threaded::init_parallel_parsing;
 use crate::ribs::rib_getter::download_ribs_for_day;
 use crate::{args::cli_args::RibsSource, ribs::rib_getter::RibFile};
 use rayon::ThreadPoolBuilder;
@@ -30,7 +27,7 @@ fn main() {
         .build_global()
         .unwrap();
 
-    match args.ribs_source {
+    let mut paths = match args.ribs_source {
         // Download MRT files and then parse them using one thread per file
         RibsSource::Download(_) => {
             let rib_files = download_ribs_for_day(args.get_ribs_ymd(), args.get_ribs_path());
@@ -54,7 +51,7 @@ fn main() {
                 })
                 .collect();
 
-            init_parallel_parsing(&rib_files, &args);
+            init_parallel_parsing(&rib_files, &args)
         }
     };
 }
