@@ -1,8 +1,8 @@
 use crate::args::cli_args::CliArgs;
 use crate::data::paths::Paths;
-use crate::mrt_data::MrtData;
+use crate::data::record_data::RecordData;
 use crate::parse_mrt::{get_peer_table, parse_mrt_entry};
-use crate::ribs::rib_getter::RibFile;
+use crate::types::rib::RibFile;
 use bgpkit_parser::BgpkitParser;
 use log::{debug, info};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
@@ -29,15 +29,11 @@ pub fn init_parallel_parsing(rib_files: &Vec<RibFile>, args: &CliArgs) -> Paths 
         .into_inner()
         .expect("RwLock poisoned");
 
-    info!(
-        "Found {} origins with {} AS paths.",
-        paths.get_origins_count(),
-        paths.get_as_paths_count(),
-    );
-
-    debug! {"{:#?}", paths};
+    paths.print_summary();
     paths.remove_single_hop_as_paths();
+    paths.print_summary();
     paths.remove_origins_with_single_as_path();
+    paths.print_summary();
     paths.to_file(&args.paths);
 
     paths
@@ -62,7 +58,7 @@ fn parse_rib_files(rib_files: &Vec<RibFile>, paths: &Arc<RwLock<Paths>>) {
                 .skip(1)
                 .par_bridge()
                 .for_each(|mrt_entry| {
-                    parse_mrt_entry(MrtData::new(
+                    parse_mrt_entry(RecordData::new(
                         &mrt_entry,
                         &Arc::clone(&paths),
                         &peer_table,
@@ -72,7 +68,7 @@ fn parse_rib_files(rib_files: &Vec<RibFile>, paths: &Arc<RwLock<Paths>>) {
         } else {
             // If there are multiple files, just parse this file in this thread
             parser.into_record_iter().skip(1).for_each(|mrt_entry| {
-                parse_mrt_entry(MrtData::new(
+                parse_mrt_entry(RecordData::new(
                     &mrt_entry,
                     &Arc::clone(&paths),
                     &peer_table,

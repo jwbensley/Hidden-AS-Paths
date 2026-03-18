@@ -1,9 +1,9 @@
 use crate::data::paths::Paths;
-use crate::mrt_data::MrtData;
-use crate::mrt_types::as_path::AsPath;
-use crate::mrt_types::community::StandardCommunity;
-use crate::mrt_types::peer::PeerTable;
-use crate::mrt_types::route::Route;
+use crate::data::record_data::RecordData;
+use crate::types::as_path::AsPath;
+use crate::types::community::StandardCommunity;
+use crate::types::peer::PeerTable;
+use crate::types::route::Route;
 use bgpkit_parser::models::{
     AsPathSegment, AttrFlags, AttrType, Attribute, AttributeValue, MrtMessage, RibAfiEntries,
     RibEntry, TableDumpV2Message, TableDumpV2Type,
@@ -69,7 +69,7 @@ fn get_rib_entries<'a>(mrt_entry: &'a MrtRecord, fp: &String) -> Option<&'a RibA
 }
 
 /// For a given mrt record, extract the prefix, then parse all rib entries for that prefix.
-pub fn parse_mrt_entry(mrt_data: MrtData) {
+pub fn parse_mrt_entry(mrt_data: RecordData) {
     let rib_entries = get_rib_entries(mrt_data.mrt_record, mrt_data.mrt_fp);
     if rib_entries.is_none() {
         return;
@@ -115,7 +115,7 @@ fn get_as_sequence(rib_entry: &RibEntry, fp: &String) -> AsPath {
 
 /// Extract the route from the RIB entry and the AS path for that route, then add the path
 /// and route at the end of the path to the list of paths for the origin AS.
-pub fn parse_rib_entry(prefix: IpNet, rib_entry: &RibEntry, mrt_data: &MrtData) {
+pub fn parse_rib_entry(prefix: IpNet, rib_entry: &RibEntry, mrt_data: &RecordData) {
     let route = build_route(mrt_data, rib_entry, &prefix);
 
     if route.get_as_path().is_empty() {
@@ -173,7 +173,7 @@ fn get_communities(rib_entry: &RibEntry) -> Vec<StandardCommunity> {
     }
 }
 
-fn build_route(mrt_data: &MrtData, rib_entry: &RibEntry, prefix: &IpNet) -> Route {
+fn build_route(mrt_data: &RecordData, rib_entry: &RibEntry, prefix: &IpNet) -> Route {
     let as_sequence = get_as_sequence(rib_entry, mrt_data.mrt_fp);
     let peer = mrt_data.peer_table.get_peer(&rib_entry.peer_index);
     let next_hop = get_next_hop(rib_entry, mrt_data.mrt_fp);

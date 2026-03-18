@@ -1,6 +1,6 @@
-use crate::mrt_types::as_path::AsPath;
-use crate::mrt_types::asn::Asn;
-use crate::mrt_types::route::Route;
+use crate::types::as_path::AsPath;
+use crate::types::asn::Asn;
+use crate::types::route::Route;
 use log::debug;
 use serde::Serialize;
 // use std::collections::HashMap;

@@ -1,4 +1,4 @@
-use crate::mrt_types::asn::Asn;
+use crate::types::asn::Asn;
 use bgpkit_parser::models::Community;
 use serde::ser::SerializeTuple;
 use serde::{Serialize, Serializer};

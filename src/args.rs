@@ -52,6 +52,10 @@ pub mod cli_args {
         #[arg(long, default_value_t = String::from("./paths.json"))]
         pub paths: String,
 
+        /// PeeringDB sqlite file
+        #[arg(long, default_value_t = String::from("./peeringdb/peeringdb.sqlite3"))]
+        pub peeringdb: String,
+
         /// Number of threads to use for parsing files
         #[arg(short, long, default_value_t = 1)]
         pub threads: u32,
