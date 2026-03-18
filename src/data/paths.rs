@@ -1,8 +1,8 @@
+use crate::clients::file::ensure_dir;
 use crate::data::origin_as_paths::OriginAsPaths;
-use crate::file::ensure_dir;
-use crate::mrt_types::as_path::AsPath;
-use crate::mrt_types::asn::Asn;
-use crate::mrt_types::route::Route;
+use crate::types::as_path::AsPath;
+use crate::types::asn::Asn;
+use crate::types::route::Route;
 use bgpkit_parser::models::Asn as BgpKitAsn;
 use core::panic;
 use log::{debug, info};
@@ -127,12 +127,6 @@ impl Paths {
         for origin_as_paths in self.get_as_paths_mut() {
             origin_as_paths.remove_single_hop_paths();
         }
-
-        info!(
-            "Remaining origins {}, with {} multi-hop AS paths",
-            self.get_origins_count(),
-            self.get_as_paths_count()
-        );
     }
 
     fn get_origins(&self) -> Keys<'_, Asn, OriginAsPaths> {
@@ -166,9 +160,11 @@ impl Paths {
         for origin in to_remove.iter() {
             self.remove_as_paths_for_origin(origin);
         }
+    }
 
+    pub fn print_summary(&self) {
         info!(
-            "Remaining multi-path origins {}, with {} AS paths",
+            "Summary: {} origins, with {} AS paths",
             self.get_origins_count(),
             self.get_as_paths_count()
         );

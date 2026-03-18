@@ -1,16 +1,16 @@
-use crate::mrt_types::peer::PeerTable;
 use crate::data::paths::Paths;
+use crate::types::peer::PeerTable;
 use bgpkit_parser::MrtRecord;
 use std::sync::{Arc, RwLock};
 /// Shared data that is passed around when parsing an individual MRT entry/record
-pub struct MrtData<'a> {
+pub struct RecordData<'a> {
     pub(crate) mrt_record: &'a MrtRecord,
     pub(crate) paths: &'a Arc<RwLock<Paths>>,
     pub(crate) peer_table: &'a PeerTable,
     pub(crate) mrt_fp: &'a String,
 }
 
-impl<'a> MrtData<'a> {
+impl<'a> RecordData<'a> {
     pub fn new(
         mrt_record: &'a MrtRecord,
         paths: &'a Arc<RwLock<Paths>>,

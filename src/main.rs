@@ -1,18 +1,20 @@
 pub mod args;
+pub mod clients;
 pub mod data;
-pub mod file;
-pub mod http;
 pub mod logging;
-pub mod mrt_data;
-pub mod mrt_types;
 pub mod parse_mrt;
 pub mod parse_threaded;
-pub mod ribs;
+pub mod types;
 
+use crate::args::cli_args::RibsSource;
+use crate::clients::mrt_archives::download_ribs_for_day;
+use crate::clients::peeringdb::get_ixp_rs_asns;
+use crate::data::paths::Paths;
 use crate::parse_threaded::init_parallel_parsing;
-use crate::ribs::rib_getter::download_ribs_for_day;
-use crate::{args::cli_args::RibsSource, ribs::rib_getter::RibFile};
+use crate::types::rib::RibFile;
 use rayon::ThreadPoolBuilder;
+
+fn filter_paths(paths: Paths) {}
 
 fn main() {
     let args = args::cli_args::parse_cli_arg();
@@ -26,6 +28,8 @@ fn main() {
         .num_threads((args.threads).try_into().unwrap())
         .build_global()
         .unwrap();
+
+    let ixp_rs_asns = get_ixp_rs_asns(&args.peeringdb);
 
     let mut paths = match args.ribs_source {
         // Download MRT files and then parse them using one thread per file

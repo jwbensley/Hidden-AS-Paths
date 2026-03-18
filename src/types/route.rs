@@ -1,7 +1,7 @@
-use crate::mrt_types::as_path::AsPath;
-use crate::mrt_types::asn::Asn;
-use crate::mrt_types::community::StandardCommunity;
-use crate::mrt_types::peer::Peer;
+use crate::types::as_path::AsPath;
+use crate::types::asn::Asn;
+use crate::types::community::StandardCommunity;
+use crate::types::peer::Peer;
 use ipnet::IpNet;
 use serde::ser::SerializeStruct as _;
 use serde::{Serialize, Serializer};

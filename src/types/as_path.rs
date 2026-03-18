@@ -1,5 +1,5 @@
-use crate::mrt_types::asn::Asn;
-use crate::mrt_types::route::Route;
+use crate::types::asn::Asn;
+use crate::types::route::Route;
 use bgpkit_parser::models::Asn as BgpKitAsn;
 use log::debug;
 use serde::ser::SerializeStruct as _;
