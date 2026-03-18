@@ -3,7 +3,6 @@ use crate::types::asn::Asn;
 use crate::types::route::Route;
 use log::debug;
 use serde::Serialize;
-// use std::collections::HashMap;
 
 /// A vector of AS paths which all point to the same origin ASN
 #[derive(Debug, Clone, Serialize)]
@@ -52,7 +51,7 @@ impl OriginAsPaths {
 
     fn get_as_path(&self, as_path: &AsPath) -> &AsPath {
         for a in self.get_as_paths() {
-            if a.get_as_path() == as_path.get_as_path() {
+            if a.get_asns() == as_path.get_asns() {
                 return a;
             }
         }
@@ -87,7 +86,7 @@ impl OriginAsPaths {
 
     fn get_as_path_mut(&mut self, as_path: &AsPath) -> &mut AsPath {
         for a in self.get_as_paths_mut() {
-            if a.get_as_path() == as_path.get_as_path() {
+            if a.get_asns() == as_path.get_asns() {
                 return a;
             }
         }
@@ -115,7 +114,9 @@ impl OriginAsPaths {
     pub fn remove_single_hop_paths(&mut self) {
         let mut to_remove = Vec::new();
         for as_path in self.get_as_paths() {
-            if as_path.len() == 1 {
+            // We may also see zero length AS paths, for iBGP originated prefixes,
+            //announced to a public collector using iBGP.
+            if as_path.len() <= 1 {
                 to_remove.push(as_path.clone());
             }
         }
@@ -125,30 +126,26 @@ impl OriginAsPaths {
         }
     }
 
-    // pub fn find_divergent_paths(&self) -> HashMap<AsPath, Vec<&AsPath>> {
-    //     let mut divergent_paths: HashMap<AsPath, Vec<&AsPath>> = HashMap::new();
+    pub fn find_non_divergent_paths(&self) -> Vec<&AsPath> {
+        let mut non_divergent_paths: Vec<&AsPath> = self.get_as_paths().iter().collect();
+        let mut checked = Vec::<&AsPath>::new();
 
-    //     let mut checked = Vec::<&AsPath>::new();
-
-    //     for a in self.get_as_paths() {
-    //         for b in self.get_as_paths() {
-    //             if a == b {
-    //                 continue;
-    //             };
-    //             if checked.contains(&a) {
-    //                 continue;
-    //             }
-    //             if a.has_divergence_with(b) {
-    //                 if !divergent_paths.contains_key(a) {
-    //                     divergent_paths.insert(a.clone(), Vec::new());
-    //                 };
-    //                 divergent_paths.get_mut(a).unwrap().push(b);
-    //             }
-    //         }
-    //         checked.push(a);
-    //     }
-    //     divergent_paths
-    // }
+        for a in self.get_as_paths() {
+            for b in self.get_as_paths() {
+                if a == b {
+                    continue;
+                };
+                if checked.contains(&b) {
+                    continue;
+                }
+                if a.is_divergent_with(b) {
+                    non_divergent_paths.retain(|x| *x != b);
+                }
+            }
+            checked.push(a);
+        }
+        non_divergent_paths
+    }
 }
 
 #[cfg(test)]
