@@ -1,4 +1,3 @@
-use crate::args::cli_args::CliArgs;
 use crate::data::paths::Paths;
 use crate::data::record_data::RecordData;
 use crate::parse_mrt::{get_peer_table, parse_mrt_entry};
@@ -10,7 +9,7 @@ use rayon::prelude::*;
 use std::sync::{Arc, RwLock};
 
 /// Setup and call parallel parsing of RIB files
-pub fn init_parallel_parsing(rib_files: &Vec<RibFile>, args: &CliArgs) -> Paths {
+pub fn init_parallel_parsing(rib_files: &Vec<RibFile>) -> Paths {
     info!("Going to parse {} RIB files", rib_files.len());
     debug!(
         "{:?}",
@@ -24,17 +23,10 @@ pub fn init_parallel_parsing(rib_files: &Vec<RibFile>, args: &CliArgs) -> Paths 
     parse_rib_files(rib_files, &paths);
 
     // after parsing, take ownership if unique
-    let mut paths: Paths = Arc::try_unwrap(paths)
+    let paths: Paths = Arc::try_unwrap(paths)
         .expect("multiple Arc refs exist")
         .into_inner()
         .expect("RwLock poisoned");
-
-    paths.print_summary();
-    paths.remove_single_hop_as_paths();
-    paths.print_summary();
-    paths.remove_origins_with_single_as_path();
-    paths.print_summary();
-    paths.to_file(&args.paths);
 
     paths
 }

@@ -1,6 +1,8 @@
 mrts/
 peeringdb/.venv
 peeringdb/failed_entries.json
+peeringdb/peeringdb.sqlite3
+paths.json
 
 # Added by cargo
 

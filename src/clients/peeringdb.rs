@@ -17,9 +17,6 @@ pub fn get_ixp_rs_asns(filename: &String) -> Vec<u32> {
         .map(|res| res.unwrap())
         .collect();
 
-    // ASN 0 is a special ASN used by many networks as an action community.
-    asns.insert(0, 0);
-
     info!("Loaded {} ASNs from PeeringDB", asns.len());
     asns
 }

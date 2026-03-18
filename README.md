@@ -3,6 +3,7 @@
 Searching for BGP AS Paths with stripped ASNs...
 
 ```shell
+sudo apt install libsqlite3-dev
 cargo build
 cargo test -- --nocapture
 

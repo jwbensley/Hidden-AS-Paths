@@ -3,7 +3,6 @@ use crate::data::origin_as_paths::OriginAsPaths;
 use crate::types::as_path::AsPath;
 use crate::types::asn::Asn;
 use crate::types::route::Route;
-use bgpkit_parser::models::Asn as BgpKitAsn;
 use core::panic;
 use log::{debug, info};
 use serde::Serialize;
@@ -19,12 +18,6 @@ use std::io::BufWriter;
 pub struct Paths {
     paths: HashMap<Asn, OriginAsPaths>,
 }
-
-// impl Default for Paths {
-//     fn default() -> Self {
-//         Self::new()
-//     }
-// }
 
 impl PartialEq for Paths {
     fn eq(&self, other: &Self) -> bool {
@@ -133,7 +126,7 @@ impl Paths {
         self.paths.keys()
     }
 
-    fn remove_as_paths_for_origin(&mut self, origin: &Asn) {
+    fn remove_origin(&mut self, origin: &Asn) {
         if self.has_as_paths_for_origin(origin) {
             debug!("Removing AS paths for origin {}", origin);
             self.paths.remove(origin);
@@ -158,30 +151,32 @@ impl Paths {
 
         debug!("Removing {} origins with single AS path", to_remove.len(),);
         for origin in to_remove.iter() {
-            self.remove_as_paths_for_origin(origin);
+            self.remove_origin(origin);
         }
     }
 
     pub fn print_summary(&self) {
         info!(
-            "Summary: {} origins, with {} AS paths",
+            "Paths: {} origins, with {} AS paths",
             self.get_origins_count(),
             self.get_as_paths_count()
         );
     }
 
-    // pub fn find_origins_with_divergent_paths(&self) {
-    //     info!("Searching for divergent paths");
-    //     for origin_as_paths in self.get_as_paths() {
-    //         let divergent_paths = origin_as_paths.find_divergent_paths();
-    //         println!("{:#?}", divergent_paths);
-    //         if true {
-    //             break;
-    //         }
-    //     }
-    // }
+    pub fn remove_origins_with_non_divergent_paths(&mut self) {
+        info!("Removing origins with non-divergent AS paths");
+        let mut origins_to_remove: Vec<Asn> = Vec::new();
 
-    // pub fn pop_as_paths_for_origin(&mut self, origin: &Asn) -> OriginAsPaths {
-    //     self.paths.remove(origin).unwrap()
-    // }
+        for origin_as_paths in self.get_as_paths() {
+            let non_divergent_paths = origin_as_paths.find_non_divergent_paths();
+
+            if !non_divergent_paths.is_empty() {
+                origins_to_remove.push(origin_as_paths.get_origin().clone());
+            }
+        }
+
+        for origin in origins_to_remove {
+            self.remove_origin(&origin);
+        }
+    }
 }

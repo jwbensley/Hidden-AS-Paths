@@ -62,7 +62,7 @@ impl AsPath {
         self.routes.push(route);
     }
 
-    pub fn get_as_path(&self) -> &Vec<Asn> {
+    pub fn get_asns(&self) -> &Vec<Asn> {
         &self.as_path
     }
 
@@ -92,28 +92,45 @@ impl AsPath {
         AsPath::new(as_path, Vec::new())
     }
 
-    // The same ASN appears somewhere in both AS Paths (not the final, origin ASN),
-    // From the point of this shared ASN to the origin, the path must be different:
-    // a = [1, 2, 3]
-    // b = [4, 2, 5, 3]
-    //         ^  ^
-    // pub fn has_divergence_with(&self, other: &AsPath) -> bool {
-    //     let a_path = self.get_asns().split_last().unwrap().1;
-    //     let b_path = other.get_asns().split_last().unwrap().1;
+    /// The same ASN appears somewhere in both AS Paths and before the origin ASN.
+    /// From the point of this shared ASN to the origin, the path must be different.
+    /// E.g., extra ASNs are in the path:
+    /// a = [1, 2, 3]
+    /// b = [4, 2, 5, 3]
+    ///            ^
+    /// Or, a different path is taken:
+    /// a = [1, 2, 5, 3]
+    /// b = [4, 2, 6, 3]
+    ///            ^
+    /// Or, ASNs are missing from the path:
+    /// a = [1, 2, 5, 3]
+    /// b = [4, 2, 3]
+    ///            ^
+    pub fn is_divergent_with(&self, other: &AsPath) -> bool {
+        assert_eq!(
+            self.get_origin(),
+            other.get_origin(),
+            "The origin must be the same to compare AS paths for divergence"
+        );
 
-    //     for a_asn in a_path {
-    //         let a_pos = a_path.iter().position(|x| x == a_asn).unwrap();
-    //         let b_pos = b_path.iter().position(|x| x == a_asn);
+        // Compare the paths up to he origin, the origin must be the same
+        let a_path = self.get_asns().split_last().unwrap().1;
+        let b_path = other.get_asns().split_last().unwrap().1;
 
-    //         if let Some(b_pos) = b_pos
-    //             && a_path[a_pos..] != b_path[b_pos..]
-    //             && (a_path.len() - a_pos != b_path.len() - b_pos)
-    //         {
-    //             return true;
-    //         }
-    //     }
-    //     false
-    // }
+        for a_asn in a_path {
+            let a_pos = a_path.iter().position(|x| x == a_asn).unwrap();
+            let b_pos = b_path.iter().position(|x| x == a_asn);
+
+            if let Some(b_pos) = b_pos
+                // The remainder of each path after the shared ASN must be different
+                && a_path[a_pos..] != b_path[b_pos..]
+            // && (a_path.len() - a_pos != b_path.len() - b_pos)
+            {
+                return true;
+            }
+        }
+        false
+    }
 }
 
 #[cfg(test)]
@@ -166,14 +183,14 @@ mod tests {
     //     let ap_1 = AsPath::get_mock(None);
     //     let ap_2 = AsPath::get_mock(None);
     //     assert!(ap_1.len() >= 3);
-    //     assert_eq!(ap_1.get_as_path(), ap_2.get_as_path());
+    //     assert_eq!(ap_1.get_asns(), ap_2.get_asns());
     //     assert!(!ap_1.has_divergence_with(&ap_2));
 
     //     // Shared ASNs - divergent paths
-    //     let mut path_2: Vec<Asn> = ap_1.get_as_path().clone();
+    //     let mut path_2: Vec<Asn> = ap_1.get_asns().clone();
     //     path_2.insert(ap_1.len() - 1, Asn::new(23456));
     //     let ap_2 = AsPath::new(path_2);
-    //     assert_ne!(ap_1.get_as_path(), ap_2.get_as_path());
+    //     assert_ne!(ap_1.get_asns(), ap_2.get_asns());
     //     assert!(ap_1.len() >= 3);
     //     assert!(ap_2.len() >= 3);
     //     assert!(ap_1.has_divergence_with(&ap_2));
@@ -189,7 +206,7 @@ mod tests {
     //         Asn::new(5),
     //         Asn::new(6),
     //     ]));
-    //     assert_ne!(ap_1.get_as_path(), ap_2.get_as_path());
+    //     assert_ne!(ap_1.get_asns(), ap_2.get_asns());
     //     assert!(ap_1.len() == 3);
     //     assert!(ap_2.len() == 3);
     //     assert!(!ap_1.has_divergence_with(&ap_2));

@@ -72,7 +72,7 @@ impl Route {
     }
 
     pub fn get_origin(&self) -> &Asn {
-        self.as_path.get_as_path().last().unwrap()
+        self.as_path.get_asns().last().unwrap()
     }
 
     pub fn get_prefix(&self) -> &IpNet {
