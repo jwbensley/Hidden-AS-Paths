@@ -11,7 +11,7 @@ use bgpkit_parser::models::{
 use bgpkit_parser::{BgpkitParser, MrtRecord};
 use ipnet::IpNet;
 use std::net::IpAddr;
-use std::sync::{Arc, LazyLock, RwLock};
+use std::sync::LazyLock;
 
 static V4_DEFAULT: LazyLock<IpNet> = LazyLock::new(|| "0.0.0.0/0".parse().unwrap());
 static V6_DEFAULT: LazyLock<IpNet> = LazyLock::new(|| "::/0".parse().unwrap());
@@ -113,19 +113,6 @@ fn get_as_sequence(rib_entry: &RibEntry, fp: &String) -> AsPath {
     AsPath::default()
 }
 
-/// Extract the route from the RIB entry and the AS path for that route, then add the path
-/// and route at the end of the path to the list of paths for the origin AS.
-pub fn parse_rib_entry(prefix: IpNet, rib_entry: &RibEntry, mrt_data: &RecordData) {
-    let route = build_route(mrt_data, rib_entry, &prefix);
-
-    if route.get_as_path().is_empty() {
-        // Some collectors include iBGP paths or self originated prefixes with no AS path
-        return;
-    }
-
-    add_path(mrt_data.paths, &route);
-}
-
 /// Return the next-nop which can be v4 or v6.
 /// If v6 LL and GUA nh exists, GUA is returned.
 fn get_next_hop(rib_entry: &RibEntry, fp: &String) -> IpAddr {
@@ -189,14 +176,24 @@ fn build_route(mrt_data: &RecordData, rib_entry: &RibEntry, prefix: &IpNet) -> R
     )
 }
 
-fn add_path(paths: &Arc<RwLock<Paths>>, route: &Route) {
+/// Extract the route from the RIB entry and the AS path for that route, then add the path
+/// and route at the end of the path to the list of paths for the origin AS.
+pub fn parse_rib_entry(prefix: IpNet, rib_entry: &RibEntry, mrt_data: &RecordData) {
+    let route = build_route(mrt_data, rib_entry, &prefix);
+
+    if route.get_as_path().is_empty() {
+        // Some collectors include iBGP paths or self originated prefixes with no AS path
+        return;
+    }
+
     let has_path: bool;
     {
-        let lock: std::sync::RwLockReadGuard<'_, Paths> = paths.read().unwrap();
-        has_path = lock.has_route(route);
+        let paths: std::sync::RwLockReadGuard<'_, Paths> = mrt_data.paths.read().unwrap();
+        has_path = paths.has_route(&route);
     }
     if !has_path {
-        let mut lock = paths.write().unwrap();
-        lock.insert_route(route.clone());
+        let mut paths = mrt_data.paths.write().unwrap();
+        //paths.add_route(route.clone());
+        paths.add_origin_as_path(route.get_as_path().clone());
     }
 }
