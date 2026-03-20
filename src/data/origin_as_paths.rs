@@ -24,13 +24,10 @@ impl OriginAsPaths {
 
     pub fn get_mock(origin: Option<Asn>) -> OriginAsPaths {
         let o = origin.unwrap_or(Asn::get_mock(None));
-        OriginAsPaths::new(
-            o.clone(),
-            Vec::from([AsPath::get_mock(Some(Vec::from([o])))]),
-        )
+        OriginAsPaths::new(o.clone(), Vec::from([AsPath::get_mock(None)]))
     }
 
-    fn get_as_paths(&self) -> &Vec<AsPath> {
+    pub fn get_as_paths(&self) -> &Vec<AsPath> {
         &self.as_paths
     }
 

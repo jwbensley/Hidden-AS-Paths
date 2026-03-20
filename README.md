@@ -5,7 +5,7 @@ Searching for BGP AS Paths with stripped ASNs...
 ```shell
 sudo apt install libsqlite3-dev
 cargo build
-cargo test -- --nocapture
+export RUST_BACKTRACE=full; cargo test -- --nocapture
 
 cargo build -r
 ./target/release/hidden-as-paths file -f /opt/mrts/20260204/ris.rrc18.bview.20260204.0000.gz

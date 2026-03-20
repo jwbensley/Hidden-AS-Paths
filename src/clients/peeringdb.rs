@@ -11,7 +11,7 @@ pub fn get_ixp_rs_asns(filename: &String) -> Vec<u32> {
         )
         .unwrap();
 
-    let mut asns: Vec<u32> = stmt
+    let asns: Vec<u32> = stmt
         .query_map([], |row| row.get(0))
         .unwrap()
         .map(|res| res.unwrap())

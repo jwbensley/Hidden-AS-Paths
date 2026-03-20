@@ -26,7 +26,13 @@ impl PartialEq for Paths {
 }
 
 impl Paths {
-    fn has_as_paths_for_origin(&self, origin: &Asn) -> bool {
+    pub fn new() -> Self {
+        Paths {
+            paths: HashMap::new(),
+        }
+    }
+
+    fn has_origin_as_paths(&self, origin: &Asn) -> bool {
         debug!(
             "Existing paths for origin {}: {}",
             origin,
@@ -35,8 +41,8 @@ impl Paths {
         self.paths.contains_key(origin)
     }
 
-    fn get_as_paths_for_origin(&self, origin: &Asn) -> &OriginAsPaths {
-        if self.has_as_paths_for_origin(origin) {
+    fn get_origin_as_paths(&self, origin: &Asn) -> &OriginAsPaths {
+        if self.has_origin_as_paths(origin) {
             self.paths.get(origin).unwrap()
         } else {
             panic!("No paths for origin {}", origin);
@@ -44,45 +50,45 @@ impl Paths {
     }
 
     pub fn has_route(&self, route: &Route) -> bool {
+        info!("Checking if route exists: {:#?}", route);
         let origin = route.get_origin();
-        if !self.has_as_paths_for_origin(origin) {
+        if !self.has_origin_as_paths(origin) {
             return false;
         };
-        self.get_as_paths_for_origin(origin).has_route(route)
+        self.get_origin_as_paths(origin).has_route(route)
     }
 
     fn add_origin(&mut self, origin: Asn) {
-        if self.has_as_paths_for_origin(&origin) {
+        if self.has_origin_as_paths(&origin) {
             return;
         };
         self.paths
             .insert(origin.clone(), OriginAsPaths::new(origin, Vec::new()));
     }
 
-    fn get_as_paths_for_origin_mut(&mut self, origin: &Asn) -> &mut OriginAsPaths {
-        if self.has_as_paths_for_origin(origin) {
+    fn get_origin_as_paths_mut(&mut self, origin: &Asn) -> &mut OriginAsPaths {
+        if self.has_origin_as_paths(origin) {
             self.paths.get_mut(origin).unwrap()
         } else {
             panic!("No paths for origin {}", origin);
         }
     }
 
-    fn add_as_path(&mut self, as_path: AsPath) {
-        let origin_as_paths = self.get_as_paths_for_origin_mut(as_path.get_origin());
+    pub fn add_origin_as_path(&mut self, as_path: AsPath) {
+        if !self.has_origin_as_paths(as_path.get_origin()) {
+            self.add_origin(as_path.get_origin().clone());
+        }
+        let origin_as_paths = self.get_origin_as_paths_mut(as_path.get_origin());
         origin_as_paths.add_as_path(as_path);
     }
 
-    fn add_route(&mut self, route: Route) {
-        self.get_as_paths_for_origin_mut(route.get_origin())
-            .add_route(route);
-    }
-
-    pub fn insert_route(&mut self, route: Route) {
+    pub fn add_route(&mut self, route: Route) {
         debug!("Adding route {:#?}", route);
         if !self.has_route(&route) {
             self.add_origin(route.get_origin().clone());
-            self.add_as_path(route.get_as_path().clone());
-            self.add_route(route);
+            self.add_origin_as_path(route.get_as_path().clone());
+            self.get_origin_as_paths_mut(route.get_origin())
+                .add_route(route);
         }
     }
 
@@ -127,7 +133,7 @@ impl Paths {
     }
 
     fn remove_origin(&mut self, origin: &Asn) {
-        if self.has_as_paths_for_origin(origin) {
+        if self.has_origin_as_paths(origin) {
             debug!("Removing AS paths for origin {}", origin);
             self.paths.remove(origin);
         } else {
@@ -144,7 +150,7 @@ impl Paths {
 
         let mut to_remove = Vec::new();
         for origin in self.get_origins() {
-            if self.get_as_paths_for_origin(origin).len() == 1 {
+            if self.get_origin_as_paths(origin).len() == 1 {
                 to_remove.push(origin.to_owned());
             }
         }
@@ -178,5 +184,111 @@ impl Paths {
         for origin in origins_to_remove {
             self.remove_origin(&origin);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_eq() {
+        let mut paths_1 = Paths::new();
+        paths_1.add_origin(Asn::get_mock(None));
+        let mut paths_2 = Paths::new();
+        paths_2.add_origin(Asn::get_mock(None));
+        assert_eq!(paths_1, paths_2);
+
+        paths_1.add_origin_as_path(AsPath::get_mock(None));
+        assert_ne!(paths_1, paths_2);
+
+        paths_2.add_origin_as_path(AsPath::get_mock(None));
+        assert_eq!(paths_1, paths_2);
+
+        paths_1.remove_origin(&Asn::get_mock(None));
+        assert_ne!(paths_1, paths_2);
+    }
+
+    #[test]
+    fn test_has_origin_as_paths() {
+        let mut paths = Paths::new();
+        paths.add_origin_as_path(AsPath::get_mock(None));
+
+        assert!(paths.has_origin_as_paths(AsPath::get_mock(None).get_origin()));
+        assert!(!paths.has_origin_as_paths(&Asn::get_mock(Some(10))));
+    }
+
+    #[test]
+    fn test_get_origin_as_paths() {
+        let mut paths = Paths::new();
+        paths.add_origin_as_path(AsPath::get_mock(None));
+
+        assert_eq!(
+            paths.get_origin_as_paths(&Asn::get_mock(None)),
+            &OriginAsPaths::get_mock(None)
+        );
+
+        assert_ne!(
+            paths.get_origin_as_paths(&Asn::get_mock(None)),
+            &OriginAsPaths::get_mock(Some(Asn::get_mock(Some(10))))
+        );
+    }
+
+    #[test]
+    fn test_has_route() {
+        let mut paths = Paths::new();
+        let route = Route::get_mock(None);
+        assert!(!paths.has_route(&route));
+
+        paths.add_route(route.clone());
+        assert!(paths.has_route(&route));
+
+        assert!(
+            !paths.has_route(&Route::get_mock(Some(AsPath::get_mock(Some(Vec::from([
+                Asn::get_mock(Some(10)),
+            ]))))))
+        );
+    }
+
+    #[test]
+    fn test_add_origin() {
+        let mut paths = Paths::new();
+        assert_eq!(paths.get_as_paths().len(), 0);
+        assert!(!paths.has_origin_as_paths(&Asn::get_mock(None)));
+
+        paths.add_origin(Asn::get_mock(None));
+        assert_eq!(paths.get_as_paths().len(), 1);
+        assert!(paths.has_origin_as_paths(&Asn::get_mock(None)));
+    }
+
+    #[test]
+    fn test_get_origin_as_paths_mut() {
+        assert!(
+            std::panic::catch_unwind(|| {
+                let mut paths = Paths::new();
+                paths.get_origin_as_paths_mut(&Asn::get_mock(None));
+            })
+            .is_err()
+        );
+
+        let mut paths = Paths::new();
+        paths.add_origin_as_path(AsPath::get_mock(None));
+        let origin_as_paths = paths.get_origin_as_paths_mut(&Asn::get_mock(None));
+
+        assert_eq!(origin_as_paths.get_as_paths().len(), 1);
+        assert_eq!(
+            origin_as_paths.get_as_paths().first().unwrap(),
+            &AsPath::get_mock(None)
+        );
+
+        origin_as_paths.add_as_path(AsPath::get_mock(Some(Vec::from([Asn::get_mock(Some(10))]))));
+        assert_eq!(origin_as_paths.get_as_paths().len(), 2);
+        assert_eq!(
+            origin_as_paths.get_as_paths(),
+            &vec![
+                AsPath::get_mock(None),
+                AsPath::get_mock(Some(Vec::from([Asn::get_mock(Some(10))])))
+            ]
+        );
     }
 }

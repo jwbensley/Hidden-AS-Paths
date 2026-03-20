@@ -47,9 +47,9 @@ impl AsPath {
     pub fn get_mock(as_path: Option<Vec<Asn>>) -> AsPath {
         let as_path = as_path.unwrap_or_else(|| {
             Vec::from([
-                Asn::get_mock(Some(1)),
-                Asn::get_mock(Some(2)),
                 Asn::get_mock(Some(3)),
+                Asn::get_mock(Some(2)),
+                Asn::get_mock(Some(1)),
             ])
         });
         AsPath::new(as_path, Vec::new())

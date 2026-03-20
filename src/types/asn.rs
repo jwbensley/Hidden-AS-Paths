@@ -27,7 +27,7 @@ impl Asn {
     }
 
     pub fn get_mock(asn: Option<u32>) -> Asn {
-        Asn::new(asn.unwrap_or(65535))
+        Asn::new(asn.unwrap_or(1))
     }
 
     pub fn to_u32(self) -> u32 {
