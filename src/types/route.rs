@@ -55,7 +55,7 @@ impl Route {
     }
 
     pub fn get_mock(origin: Option<AsPath>) -> Self {
-        let as_path = origin.unwrap_or_else(|| AsPath::get_mock(None));
+        let as_path = origin.unwrap_or_else(|| AsPath::get_mock(None, None));
 
         Self {
             as_path,
@@ -63,7 +63,7 @@ impl Route {
             next_hop: "127.0.0.1".parse().unwrap(),
             peer: Peer::get_mock(),
             prefix: "127.0.0.0/8".parse().unwrap(),
-            communities: Vec::new(),
+            communities: Vec::from([StandardCommunity::get_mock(None)]),
         }
     }
 
@@ -87,7 +87,7 @@ mod tests {
 
     #[test]
     fn test_new() {
-        let as_path = AsPath::get_mock(None);
+        let as_path = AsPath::get_mock(None, None);
         let filename = String::from("test_file.mrt");
         let next_hop: IpAddr = "192.0.2.1".parse().unwrap();
         let peer = Peer::get_mock();
@@ -123,21 +123,21 @@ mod tests {
 
     #[test]
     fn test_get_mock_with_some() {
-        let custom_as_path = AsPath::get_mock(Some(vec![Asn::new(100), Asn::new(200)]));
+        let custom_as_path = AsPath::get_mock(Some(vec![Asn::new(100), Asn::new(200)]), None);
         let route = Route::get_mock(Some(custom_as_path.clone()));
         assert_eq!(route.as_path, custom_as_path);
     }
 
     #[test]
     fn test_get_as_path() {
-        let as_path = AsPath::get_mock(None);
+        let as_path = AsPath::get_mock(None, None);
         let route = Route::get_mock(Some(as_path.clone()));
         assert_eq!(route.get_as_path(), &as_path);
     }
 
     #[test]
     fn test_get_origin() {
-        let as_path = AsPath::get_mock(None);
+        let as_path = AsPath::get_mock(None, None);
         let route = Route::get_mock(Some(as_path.clone()));
         assert_eq!(route.get_origin(), as_path.get_origin());
     }
@@ -146,7 +146,7 @@ mod tests {
     fn test_get_prefix() {
         let prefix: IpNet = "192.168.0.0/16".parse().unwrap();
         let route = Route::new(
-            AsPath::get_mock(None),
+            AsPath::get_mock(None, None),
             String::from("test.mrt"),
             "192.0.2.1".parse().unwrap(),
             Peer::get_mock(),
@@ -159,7 +159,7 @@ mod tests {
 
     #[test]
     fn test_serialize() {
-        let as_path = AsPath::get_mock(None);
+        let as_path = AsPath::get_mock(None, None);
         let communities = Vec::from([StandardCommunity::get_mock(None)]);
         let peer = Peer::get_mock();
 
@@ -198,7 +198,7 @@ mod tests {
         assert_eq!(route1, route2);
 
         let route3 = Route::new(
-            AsPath::get_mock(Some(vec![Asn::new(999)])),
+            AsPath::get_mock(Some(vec![Asn::new(999)]), None),
             String::from("different.mrt"),
             "192.0.2.2".parse().unwrap(),
             Peer::get_mock(),
@@ -220,7 +220,7 @@ mod tests {
         assert!(set.contains(&route2));
 
         let route3 = Route::new(
-            AsPath::get_mock(Some(vec![Asn::new(999)])),
+            AsPath::get_mock(Some(vec![Asn::new(999)]), None),
             String::from("different.mrt"),
             "192.0.2.2".parse().unwrap(),
             Peer::get_mock(),

@@ -45,15 +45,16 @@ impl AsPath {
         AsPath { as_path, routes }
     }
 
-    pub fn get_mock(as_path: Option<Vec<Asn>>) -> AsPath {
+    pub fn get_mock(as_path: Option<Vec<Asn>>, routes: Option<Vec<Route>>) -> AsPath {
         let as_path = as_path.unwrap_or_else(|| {
             Vec::from([
                 Asn::get_mock(Some(3)),
                 Asn::get_mock(Some(2)),
-                Asn::get_mock(Some(1)),
+                Asn::get_mock(None),
             ])
         });
-        AsPath::new(as_path, Vec::new())
+        let routes = routes.unwrap_or_else(|| Vec::from([Route::get_mock(None)]));
+        AsPath::new(as_path, routes)
     }
 
     pub fn add_route(&mut self, route: Route) {
@@ -173,7 +174,7 @@ mod tests {
 
     #[test]
     fn test_get_mock() {
-        let ap = AsPath::get_mock(None);
+        let ap = AsPath::get_mock(None, None);
         assert_eq!(ap.len(), 3);
         assert_eq!(ap.get_asns(), &vec![Asn::new(3), Asn::new(2), Asn::new(1)]);
         assert_eq!(ap.routes.len(), 0);
@@ -182,23 +183,25 @@ mod tests {
     #[test]
     fn test_get_mock_custom_path() {
         let custom_path = vec![Asn::new(10), Asn::new(20), Asn::new(30)];
-        let ap = AsPath::get_mock(Some(custom_path.clone()));
+        let ap = AsPath::get_mock(Some(custom_path.clone()), None);
         assert_eq!(ap.get_asns(), &custom_path);
     }
 
     #[test]
     fn test_add_route() {
-        let mut ap = AsPath::get_mock(None);
-        let route = Route::get_mock(None);
-
-        ap.add_route(route.clone());
+        let mut ap = AsPath::get_mock(None, None);
+        let route_1 = Route::get_mock(None);
         assert_eq!(ap.routes.len(), 1);
-        assert!(ap.has_route(&route));
+        assert!(ap.has_route(&route_1));
+
+        let route_2 = Route::get_mock(Some(AsPath::get_mock(Some(vec![Asn::new(999)]), None)));
+        ap.add_route(route_2.clone());
+        assert_eq!(ap.routes.len(), 2);
     }
 
     #[test]
     fn test_add_route_duplicate() {
-        let mut ap = AsPath::get_mock(None);
+        let mut ap = AsPath::get_mock(None, None);
         let route = Route::get_mock(None);
 
         ap.add_route(route.clone());
@@ -210,9 +213,9 @@ mod tests {
 
     #[test]
     fn test_add_multiple_different_routes() {
-        let mut ap = AsPath::get_mock(None);
-        let route1 = Route::get_mock(Some(AsPath::get_mock(Some(vec![Asn::new(1)]))));
-        let route2 = Route::get_mock(Some(AsPath::get_mock(Some(vec![Asn::new(2)]))));
+        let mut ap = AsPath::get_mock(None, None);
+        let route1 = Route::get_mock(Some(AsPath::get_mock(Some(vec![Asn::new(1)]), None)));
+        let route2 = Route::get_mock(Some(AsPath::get_mock(Some(vec![Asn::new(2)]), None)));
 
         ap.add_route(route1.clone());
         ap.add_route(route2.clone());
@@ -276,7 +279,7 @@ mod tests {
 
     #[test]
     fn test_has_route_true() {
-        let mut ap = AsPath::get_mock(None);
+        let mut ap = AsPath::get_mock(None, None);
         let route = Route::get_mock(None);
         ap.add_route(route.clone());
         assert!(ap.has_route(&route));
@@ -284,7 +287,7 @@ mod tests {
 
     #[test]
     fn test_has_route_false() {
-        let ap = AsPath::get_mock(None);
+        let ap = AsPath::get_mock(None, None);
         let route = Route::get_mock(None);
         assert!(!ap.has_route(&route));
     }
@@ -297,7 +300,7 @@ mod tests {
 
     #[test]
     fn test_is_empty_false() {
-        let ap = AsPath::get_mock(None);
+        let ap = AsPath::get_mock(None, None);
         assert!(!ap.is_empty());
     }
 
@@ -418,16 +421,16 @@ mod tests {
     #[test]
     fn test_as_path_eq() {
         // EQ with same default origin and default AS path
-        let mut ap_1 = AsPath::get_mock(None);
+        let mut ap_1 = AsPath::get_mock(None, None);
         ap_1.add_route(Route::get_mock(None));
-        let mut ap_2 = AsPath::get_mock(None);
+        let mut ap_2 = AsPath::get_mock(None, None);
         ap_2.add_route(Route::get_mock(None));
         assert_eq!(ap_1, ap_2);
 
         // EQ with same explicit origin and explicit AS path
-        ap_1 = AsPath::get_mock(Some(Vec::from([Asn::new(1)])));
+        ap_1 = AsPath::get_mock(Some(Vec::from([Asn::new(1)])), None);
         ap_1.add_route(Route::get_mock(Some(ap_1.clone())));
-        ap_2 = AsPath::get_mock(Some(Vec::from([Asn::new(1)])));
+        ap_2 = AsPath::get_mock(Some(Vec::from([Asn::new(1)])), None);
         ap_2.add_route(Route::get_mock(Some(ap_2.clone())));
         assert_eq!(ap_1, ap_2);
     }
@@ -435,23 +438,24 @@ mod tests {
     #[test]
     fn test_as_path_ne() {
         // NE with different origins
-        let mut ap_1 = AsPath::get_mock(Some(Vec::from([Asn::new(1)])));
-        let mut ap_2 = AsPath::get_mock(Some(Vec::from([Asn::new(2)])));
+        let mut ap_1 = AsPath::get_mock(Some(Vec::from([Asn::new(1)])), None);
+        let mut ap_2 = AsPath::get_mock(Some(Vec::from([Asn::new(2)])), None);
         assert_ne!(ap_1, ap_2);
 
         // NE if missing Route
-        ap_1 = AsPath::get_mock(Some(Vec::from([Asn::new(1)])));
+        ap_1 = AsPath::get_mock(Some(Vec::from([Asn::new(1)])), None);
         ap_1.add_route(Route::get_mock(Some(ap_1.clone())));
-        ap_2 = AsPath::get_mock(Some(Vec::from([Asn::new(1)])));
+        ap_2 = AsPath::get_mock(Some(Vec::from([Asn::new(1)])), None);
         assert_ne!(ap_1, ap_2);
 
         // NE if different routes
-        ap_1 = AsPath::get_mock(Some(Vec::from([Asn::new(1)])));
+        ap_1 = AsPath::get_mock(Some(Vec::from([Asn::new(1)])), None);
         ap_1.add_route(Route::get_mock(Some(ap_1.clone())));
-        ap_2 = AsPath::get_mock(Some(Vec::from([Asn::new(1)])));
-        ap_1.add_route(Route::get_mock(Some(AsPath::get_mock(Some(Vec::from([
-            Asn::new(2),
-        ]))))));
+        ap_2 = AsPath::get_mock(Some(Vec::from([Asn::new(1)])), None);
+        ap_1.add_route(Route::get_mock(Some(AsPath::get_mock(
+            Some(Vec::from([Asn::new(2)])),
+            None,
+        ))));
         assert_ne!(ap_1, ap_2);
     }
 }

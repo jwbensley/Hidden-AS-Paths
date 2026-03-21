@@ -7,8 +7,8 @@ use core::panic;
 use log::{debug, info};
 use serde::Serialize;
 use serde_json;
-use std::collections::HashMap;
 use std::collections::hash_map::{Keys, Values, ValuesMut};
+use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io::BufWriter;
 
@@ -63,7 +63,7 @@ impl Paths {
             return;
         };
         self.paths
-            .insert(origin.clone(), OriginAsPaths::new(origin, Vec::new()));
+            .insert(origin.clone(), OriginAsPaths::new(origin, HashSet::new()));
     }
 
     fn get_origin_as_paths_mut(&mut self, origin: &Asn) -> &mut OriginAsPaths {
@@ -199,10 +199,10 @@ mod tests {
         paths_2.add_origin(Asn::get_mock(None));
         assert_eq!(paths_1, paths_2);
 
-        paths_1.add_origin_as_path(AsPath::get_mock(None));
+        paths_1.add_origin_as_path(AsPath::get_mock(None, None));
         assert_ne!(paths_1, paths_2);
 
-        paths_2.add_origin_as_path(AsPath::get_mock(None));
+        paths_2.add_origin_as_path(AsPath::get_mock(None, None));
         assert_eq!(paths_1, paths_2);
 
         paths_1.remove_origin(&Asn::get_mock(None));
@@ -212,16 +212,16 @@ mod tests {
     #[test]
     fn test_has_origin_as_paths() {
         let mut paths = Paths::new();
-        paths.add_origin_as_path(AsPath::get_mock(None));
+        paths.add_origin_as_path(AsPath::get_mock(None, None));
 
-        assert!(paths.has_origin_as_paths(AsPath::get_mock(None).get_origin()));
+        assert!(paths.has_origin_as_paths(AsPath::get_mock(None, None).get_origin()));
         assert!(!paths.has_origin_as_paths(&Asn::get_mock(Some(10))));
     }
 
     #[test]
     fn test_get_origin_as_paths() {
         let mut paths = Paths::new();
-        paths.add_origin_as_path(AsPath::get_mock(None));
+        paths.add_origin_as_path(AsPath::get_mock(None, None));
 
         assert_eq!(
             paths.get_origin_as_paths(&Asn::get_mock(None)),
@@ -243,11 +243,10 @@ mod tests {
         paths.add_route(route.clone());
         assert!(paths.has_route(&route));
 
-        assert!(
-            !paths.has_route(&Route::get_mock(Some(AsPath::get_mock(Some(Vec::from([
-                Asn::get_mock(Some(10)),
-            ]))))))
-        );
+        assert!(!paths.has_route(&Route::get_mock(Some(AsPath::get_mock(
+            Some(Vec::from([Asn::get_mock(Some(10)),])),
+            None
+        )))));
     }
 
     #[test]
@@ -272,23 +271,26 @@ mod tests {
         );
 
         let mut paths = Paths::new();
-        paths.add_origin_as_path(AsPath::get_mock(None));
+        paths.add_origin_as_path(AsPath::get_mock(None, None));
         let origin_as_paths = paths.get_origin_as_paths_mut(&Asn::get_mock(None));
 
         assert_eq!(origin_as_paths.get_as_paths().len(), 1);
         assert_eq!(
-            origin_as_paths.get_as_paths().first().unwrap(),
-            &AsPath::get_mock(None)
+            origin_as_paths.get_as_paths(),
+            &HashSet::from([AsPath::get_mock(None, None)])
         );
 
-        origin_as_paths.add_as_path(AsPath::get_mock(Some(Vec::from([Asn::get_mock(Some(10))]))));
+        origin_as_paths.add_as_path(AsPath::get_mock(
+            Some(Vec::from([Asn::get_mock(Some(10))])),
+            None,
+        ));
         assert_eq!(origin_as_paths.get_as_paths().len(), 2);
         assert_eq!(
             origin_as_paths.get_as_paths(),
-            &vec![
-                AsPath::get_mock(None),
-                AsPath::get_mock(Some(Vec::from([Asn::get_mock(Some(10))])))
-            ]
+            &HashSet::from([
+                AsPath::get_mock(None, None),
+                AsPath::get_mock(Some(Vec::from([Asn::get_mock(Some(10))])), None)
+            ])
         );
     }
 }
