@@ -145,17 +145,20 @@ impl Paths {
     }
 
     /// Remove origins which only have a single AS path
-    pub fn remove_origins_with_single_as_path(&mut self) {
-        info!("Removing origins with only one AS path");
+    pub fn remove_origins_with_one_or_less_as_paths(&mut self) {
+        info!("Removing origins with one or less AS paths");
 
         let mut to_remove = Vec::new();
         for origin in self.get_origins() {
-            if self.get_origin_as_paths(origin).len() == 1 {
+            if self.get_origin_as_paths(origin).len() <= 1 {
                 to_remove.push(origin.to_owned());
             }
         }
 
-        debug!("Removing {} origins with single AS path", to_remove.len(),);
+        debug!(
+            "Removing {} origins with one or less AS paths",
+            to_remove.len(),
+        );
         for origin in to_remove.iter() {
             self.remove_origin(origin);
         }
@@ -207,6 +210,13 @@ mod tests {
 
         paths_1.remove_origin(&Asn::get_mock(None));
         assert_ne!(paths_1, paths_2);
+    }
+
+    #[test]
+    fn test_new() {
+        let paths = Paths::new();
+        assert_eq!(paths.get_origins_count(), 0);
+        assert_eq!(paths.get_as_paths_count(), 0);
     }
 
     #[test]
@@ -298,5 +308,198 @@ mod tests {
                 AsPath::get_mock(Some(Vec::from([Asn::get_mock(Some(10))])), None)
             ])
         );
+    }
+
+    #[test]
+    fn test_add_origin_as_path() {
+        let mut paths = Paths::new();
+        assert_eq!(paths.get_as_paths_count(), 0);
+
+        paths.add_origin_as_path(AsPath::get_mock(None, None));
+        assert_eq!(paths.get_as_paths_count(), 1);
+        assert!(paths.has_origin_as_paths(&Asn::get_mock(None)));
+
+        paths.add_origin_as_path(AsPath::get_mock(
+            Some(Vec::from([Asn::get_mock(Some(10))])),
+            None,
+        ));
+        assert_eq!(paths.get_as_paths_count(), 2);
+    }
+
+    #[test]
+    fn test_add_route() {
+        let mut paths = Paths::new();
+        let route = Route::get_mock(None);
+
+        assert_eq!(paths.get_origins_count(), 0);
+        paths.add_route(route.clone());
+        assert_eq!(paths.get_origins_count(), 1);
+        assert!(paths.has_route(&route));
+
+        // Adding same route again should not increase count
+        paths.add_route(route.clone());
+        assert_eq!(paths.get_origins_count(), 1);
+    }
+
+    #[test]
+    fn test_get_origins_count() {
+        let mut paths = Paths::new();
+        assert_eq!(paths.get_origins_count(), 0);
+
+        paths.add_origin(Asn::get_mock(None));
+        assert_eq!(paths.get_origins_count(), 1);
+
+        paths.add_origin(Asn::get_mock(Some(10)));
+        assert_eq!(paths.get_origins_count(), 2);
+    }
+
+    #[test]
+    fn test_get_as_paths() {
+        let mut paths = Paths::new();
+        assert_eq!(paths.get_as_paths().len(), 0);
+
+        paths.add_origin_as_path(AsPath::get_mock(None, None));
+        assert_eq!(paths.get_as_paths().len(), 1);
+    }
+
+    #[test]
+    fn test_get_as_paths_count() {
+        let mut paths = Paths::new();
+        assert_eq!(paths.get_as_paths_count(), 0);
+
+        paths.add_origin_as_path(AsPath::get_mock(None, None));
+        assert_eq!(paths.get_as_paths_count(), 1);
+
+        paths.add_origin_as_path(AsPath::get_mock(
+            Some(Vec::from([Asn::get_mock(Some(10))])),
+            None,
+        ));
+        assert_eq!(paths.get_as_paths_count(), 2);
+    }
+
+    #[test]
+    fn test_get_as_paths_mut() {
+        let mut paths = Paths::new();
+        paths.add_origin_as_path(AsPath::get_mock(None, None));
+        assert_eq!(paths.get_as_paths_count(), 1);
+
+        let mut as_paths_mut = paths.get_as_paths_mut();
+        assert_eq!(as_paths_mut.len(), 1);
+        as_paths_mut
+            .next()
+            .unwrap()
+            .add_as_path(AsPath::get_mock(Some(Vec::from([Asn::new(10)])), None));
+
+        assert_eq!(paths.get_as_paths_count(), 2);
+    }
+
+    #[test]
+    fn test_get_origins() {
+        let mut paths = Paths::new();
+        assert_eq!(paths.get_origins().len(), 0);
+
+        paths.add_origin(Asn::get_mock(None));
+        assert_eq!(paths.get_origins().len(), 1);
+
+        paths.add_origin(Asn::get_mock(Some(10)));
+        assert_eq!(paths.get_origins().len(), 2);
+    }
+
+    #[test]
+    fn test_remove_origin() {
+        let mut paths = Paths::new();
+        paths.add_origin(Asn::get_mock(None));
+        assert_eq!(paths.get_origins_count(), 1);
+
+        paths.remove_origin(&Asn::get_mock(None));
+        assert_eq!(paths.get_origins_count(), 0);
+    }
+
+    #[test]
+    fn test_remove_origin_non_existing() {
+        let mut paths = Paths::new();
+        assert!(
+            std::panic::catch_unwind(move || {
+                paths.remove_origin(&Asn::get_mock(None));
+            })
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn test_remove_origins_with_one_or_less_as_paths() {
+        let mut paths = Paths::new();
+        paths.add_origin_as_path(AsPath::get_mock(Some(Vec::from([Asn::new(10)])), None));
+        paths.add_origin_as_path(AsPath::get_mock(
+            Some(Vec::from([Asn::new(20), Asn::new(10)])),
+            None,
+        ));
+        paths.add_origin_as_path(AsPath::get_mock(Some(Vec::from([Asn::new(30)])), None));
+
+        assert_eq!(paths.get_origins_count(), 2);
+
+        paths.remove_origins_with_one_or_less_as_paths();
+        assert_eq!(paths.get_origins_count(), 1);
+    }
+
+    #[test]
+    fn test_remove_single_hop_as_paths_empty() {
+        let mut paths = Paths::new();
+        assert_eq!(paths.get_as_paths_count(), 0);
+
+        paths.remove_single_hop_as_paths();
+        assert_eq!(paths.get_as_paths_count(), 0);
+    }
+
+    #[test]
+    fn test_remove_single_hop_as_paths_only_single_hop() {
+        let mut paths = Paths::new();
+        paths.add_origin_as_path(AsPath::new(Vec::from([Asn::new(10)]), Vec::new()));
+        paths.add_origin_as_path(AsPath::new(Vec::from([Asn::new(20)]), Vec::new()));
+        assert_eq!(paths.get_as_paths_count(), 2);
+
+        paths.remove_single_hop_as_paths();
+        assert_eq!(paths.get_as_paths_count(), 0);
+    }
+
+    #[test]
+    fn test_remove_single_hop_as_paths_only_multi_hop() {
+        let mut paths = Paths::new();
+        paths.add_origin_as_path(AsPath::new(
+            Vec::from([Asn::new(20), Asn::new(10)]),
+            Vec::new(),
+        ));
+        paths.add_origin_as_path(AsPath::new(
+            Vec::from([Asn::new(30), Asn::new(20), Asn::new(10)]),
+            Vec::new(),
+        ));
+        assert_eq!(paths.get_as_paths_count(), 2);
+
+        paths.remove_single_hop_as_paths();
+        assert_eq!(paths.get_as_paths_count(), 2);
+    }
+
+    #[test]
+    fn test_remove_single_hop_as_paths_mixed() {
+        let mut paths = Paths::new();
+        paths.add_origin_as_path(AsPath::new(Vec::from([Asn::new(10)]), Vec::new()));
+        paths.add_origin_as_path(AsPath::new(
+            Vec::from([Asn::new(20), Asn::new(10)]),
+            Vec::new(),
+        ));
+        paths.add_origin_as_path(AsPath::new(
+            Vec::from([Asn::new(30), Asn::new(10)]),
+            Vec::new(),
+        ));
+        paths.add_origin_as_path(AsPath::new(Vec::from([Asn::new(50)]), Vec::new()));
+
+        assert_eq!(paths.get_as_paths_count(), 4);
+        assert_eq!(paths.get_origins_count(), 2);
+
+        paths.remove_single_hop_as_paths();
+        assert_eq!(paths.get_as_paths_count(), 2);
+        assert_eq!(paths.get_origins_count(), 2);
+        assert!(paths.has_origin_as_paths(&Asn::new(10)));
+        assert!(paths.has_origin_as_paths(&Asn::new(50)));
     }
 }

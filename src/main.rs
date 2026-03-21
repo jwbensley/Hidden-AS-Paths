@@ -49,7 +49,7 @@ fn filter_paths(mut paths: Paths, args: &CliArgs) {
     paths.print_summary();
     paths.remove_single_hop_as_paths();
     paths.print_summary();
-    paths.remove_origins_with_single_as_path();
+    paths.remove_origins_with_one_or_less_as_paths();
     paths.print_summary();
     paths.remove_origins_with_non_divergent_paths();
     paths.print_summary();
