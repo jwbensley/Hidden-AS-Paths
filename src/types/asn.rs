@@ -2,7 +2,7 @@ use bgpkit_parser::models::Asn as BgpkitAsn;
 use serde::{Serialize, Serializer};
 use std::fmt;
 
-/// Aa wrapper around the `Asn` type from `bgpkit_parser` to allow for serialisation to JSON.
+/// A wrapper around the `Asn` type from `bgpkit_parser` to allow for serialisation to JSON.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Asn(BgpkitAsn);
 
@@ -32,5 +32,62 @@ impl Asn {
 
     pub fn to_u32(self) -> u32 {
         self.0.to_u32()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_new() {
+        let as_numbers = vec![0, 1, 65535, 4294967295];
+        for as_number in as_numbers {
+            let asn = Asn::new(as_number);
+            assert_eq!(asn.to_u32(), as_number);
+        }
+    }
+
+    #[test]
+    fn test_get_mock() {
+        let asn = Asn::get_mock(None);
+        assert_eq!(asn.to_u32(), 1);
+
+        let asn = Asn::get_mock(Some(12345));
+        assert_eq!(asn.to_u32(), 12345);
+    }
+
+    #[test]
+    fn test_to_u32() {
+        let asn = Asn::new(54321);
+        let asn_u32: u32 = asn.to_u32();
+        assert_eq!(asn_u32, 54321);
+    }
+
+    #[test]
+    fn test_display() {
+        let asn = Asn::new(65000);
+        assert_eq!(format!("{}", asn), "65000");
+    }
+
+    #[test]
+    fn test_serialize() {
+        let asn = Asn::new(12345);
+        let json = serde_json::to_string(&asn).unwrap();
+        assert_eq!(json, "12345");
+    }
+
+    #[test]
+    fn test_serialize_in_struct() {
+        #[derive(Serialize)]
+        struct TestStruct {
+            asn: Asn,
+        }
+
+        let test = TestStruct {
+            asn: Asn::new(64512),
+        };
+        let json = serde_json::to_string(&test).unwrap();
+        assert_eq!(json, r#"{"asn":64512}"#);
     }
 }
