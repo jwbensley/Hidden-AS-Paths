@@ -1,6 +1,7 @@
 use crate::types::asn::Asn;
 use crate::types::route::Route;
 use bgpkit_parser::models::Asn as BgpKitAsn;
+use core::panic;
 use log::debug;
 use serde::ser::SerializeStruct as _;
 use serde::{Serialize, Serializer};
@@ -67,7 +68,14 @@ impl AsPath {
     }
 
     pub fn get_origin(&self) -> &Asn {
+        if self.as_path.is_empty() {
+            panic!("AS path is empty, cannot get origin ASN");
+        }
         self.as_path.last().unwrap()
+    }
+
+    pub fn get_routes(&self) -> &Vec<Route> {
+        &self.routes
     }
 
     pub fn has_route(&self, route: &Route) -> bool {
@@ -98,8 +106,7 @@ impl AsPath {
     /// a = [1, 2, 3]
     /// b = [4, 2, 5, 3]
     ///            ^
-    /// Or, a different path is taken:
-    /// a = [1, 2, 5, 3]
+    /// Or, a = [1, 2, 5, 3]
     /// b = [4, 2, 6, 3]
     ///            ^
     /// Or, ASNs are missing from the path:
@@ -136,6 +143,277 @@ impl AsPath {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_new() {
+        let as_path = vec![Asn::new(1), Asn::new(2), Asn::new(3)];
+        let routes = vec![Route::get_mock(None)];
+        let ap = AsPath::new(as_path.clone(), routes.clone());
+
+        assert_eq!(ap.len(), as_path.len());
+        assert_eq!(ap.get_asns(), &as_path);
+        assert_eq!(ap.routes.len(), 1);
+        assert_eq!(ap.routes[0], routes[0]);
+    }
+
+    #[test]
+    fn test_new_dedups_consecutive_asns() {
+        let as_path = vec![
+            Asn::new(1),
+            Asn::new(1),
+            Asn::new(2),
+            Asn::new(2),
+            Asn::new(3),
+        ];
+        let ap = AsPath::new(as_path, Vec::new());
+
+        assert_eq!(ap.len(), 3);
+        assert_eq!(ap.get_asns(), &vec![Asn::new(1), Asn::new(2), Asn::new(3)]);
+    }
+
+    #[test]
+    fn test_get_mock() {
+        let ap = AsPath::get_mock(None);
+        assert_eq!(ap.len(), 3);
+        assert_eq!(ap.get_asns(), &vec![Asn::new(3), Asn::new(2), Asn::new(1)]);
+        assert_eq!(ap.routes.len(), 0);
+    }
+
+    #[test]
+    fn test_get_mock_custom_path() {
+        let custom_path = vec![Asn::new(10), Asn::new(20), Asn::new(30)];
+        let ap = AsPath::get_mock(Some(custom_path.clone()));
+        assert_eq!(ap.get_asns(), &custom_path);
+    }
+
+    #[test]
+    fn test_add_route() {
+        let mut ap = AsPath::get_mock(None);
+        let route = Route::get_mock(None);
+
+        ap.add_route(route.clone());
+        assert_eq!(ap.routes.len(), 1);
+        assert!(ap.has_route(&route));
+    }
+
+    #[test]
+    fn test_add_route_duplicate() {
+        let mut ap = AsPath::get_mock(None);
+        let route = Route::get_mock(None);
+
+        ap.add_route(route.clone());
+        ap.add_route(route.clone());
+
+        assert_eq!(ap.routes.len(), 1);
+        assert!(ap.has_route(&route));
+    }
+
+    #[test]
+    fn test_add_multiple_different_routes() {
+        let mut ap = AsPath::get_mock(None);
+        let route1 = Route::get_mock(Some(AsPath::get_mock(Some(vec![Asn::new(1)]))));
+        let route2 = Route::get_mock(Some(AsPath::get_mock(Some(vec![Asn::new(2)]))));
+
+        ap.add_route(route1.clone());
+        ap.add_route(route2.clone());
+
+        assert_eq!(ap.routes.len(), 2);
+        assert!(ap.has_route(&route1));
+        assert!(ap.has_route(&route2));
+    }
+
+    #[test]
+    fn test_get_asns_empty() {
+        let ap = AsPath::new(Vec::new(), Vec::new());
+        assert_eq!(ap.get_asns(), &Vec::new());
+    }
+
+    #[test]
+    fn test_get_asns() {
+        let as_path = vec![Asn::new(100), Asn::new(200), Asn::new(300)];
+        let ap = AsPath::new(as_path.clone(), Vec::new());
+        assert_eq!(ap.get_asns(), &as_path);
+    }
+
+    #[test]
+    fn test_get_origin_empty() {
+        assert!(
+            std::panic::catch_unwind(|| {
+                let ap = AsPath::new(Vec::new(), Vec::new());
+                ap.get_origin();
+            })
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn test_get_origin() {
+        let as_path = vec![Asn::new(1), Asn::new(2), Asn::new(3)];
+        let ap = AsPath::new(as_path, Vec::new());
+        assert_eq!(ap.get_origin(), &Asn::new(3));
+    }
+
+    #[test]
+    fn test_get_origin_single_asn() {
+        let as_path = vec![Asn::new(42)];
+        let ap = AsPath::new(as_path, Vec::new());
+        assert_eq!(ap.get_origin(), &Asn::new(42));
+    }
+
+    #[test]
+    fn test_get_routes_empty() {
+        let ap = AsPath::new(Vec::new(), Vec::new());
+        assert_eq!(ap.get_routes(), &Vec::new());
+    }
+
+    #[test]
+    fn test_get_routes() {
+        let route1 = Route::get_mock(None);
+        let route2 = Route::get_mock(None);
+        let ap = AsPath::new(Vec::new(), vec![route1.clone(), route2.clone()]);
+        assert_eq!(ap.get_routes(), &vec![route1, route2]);
+    }
+
+    #[test]
+    fn test_has_route_true() {
+        let mut ap = AsPath::get_mock(None);
+        let route = Route::get_mock(None);
+        ap.add_route(route.clone());
+        assert!(ap.has_route(&route));
+    }
+
+    #[test]
+    fn test_has_route_false() {
+        let ap = AsPath::get_mock(None);
+        let route = Route::get_mock(None);
+        assert!(!ap.has_route(&route));
+    }
+
+    #[test]
+    fn test_is_empty_true() {
+        let ap = AsPath::new(Vec::new(), Vec::new());
+        assert!(ap.is_empty());
+    }
+
+    #[test]
+    fn test_is_empty_false() {
+        let ap = AsPath::get_mock(None);
+        assert!(!ap.is_empty());
+    }
+
+    #[test]
+    fn test_len() {
+        let ap = AsPath::new(vec![Asn::new(1), Asn::new(2), Asn::new(3)], Vec::new());
+        assert_eq!(ap.len(), 3);
+
+        let ap_empty = AsPath::new(Vec::new(), Vec::new());
+        assert_eq!(ap_empty.len(), 0);
+    }
+
+    #[test]
+    fn test_from_vec() {
+        let bgpkit_asns = vec![
+            BgpKitAsn::new_32bit(100),
+            BgpKitAsn::new_32bit(200),
+            BgpKitAsn::new_32bit(300),
+        ];
+
+        let ap = AsPath::from_vec(&bgpkit_asns);
+
+        assert_eq!(ap.len(), 3);
+        assert_eq!(
+            ap.get_asns(),
+            &vec![Asn::new(100), Asn::new(200), Asn::new(300)]
+        );
+        assert_eq!(ap.routes.len(), 0);
+    }
+
+    #[test]
+    fn test_from_vec_empty() {
+        let bgpkit_asns: Vec<BgpKitAsn> = Vec::new();
+        let ap = AsPath::from_vec(&bgpkit_asns);
+
+        assert_eq!(ap.len(), 0);
+        assert!(ap.is_empty());
+    }
+
+    #[test]
+    fn test_is_divergent_with_same_path() {
+        let ap1 = AsPath::new(vec![Asn::new(1), Asn::new(2), Asn::new(3)], Vec::new());
+        let ap2 = AsPath::new(vec![Asn::new(1), Asn::new(2), Asn::new(3)], Vec::new());
+
+        assert!(!ap1.is_divergent_with(&ap2));
+    }
+
+    #[test]
+    fn test_is_divergent_with_extra_asn_in_middle() {
+        let ap1 = AsPath::new(vec![Asn::new(1), Asn::new(2), Asn::new(3)], Vec::new());
+        let ap2 = AsPath::new(
+            vec![Asn::new(4), Asn::new(2), Asn::new(5), Asn::new(3)],
+            Vec::new(),
+        );
+
+        assert!(ap1.is_divergent_with(&ap2));
+    }
+
+    #[test]
+    fn test_is_divergent_with_different_path_after_shared_asn() {
+        let ap1 = AsPath::new(
+            vec![Asn::new(1), Asn::new(2), Asn::new(5), Asn::new(3)],
+            Vec::new(),
+        );
+        let ap2 = AsPath::new(
+            vec![Asn::new(4), Asn::new(2), Asn::new(6), Asn::new(3)],
+            Vec::new(),
+        );
+
+        assert!(ap1.is_divergent_with(&ap2));
+    }
+
+    #[test]
+    fn test_is_divergent_with_missing_asns() {
+        let ap1 = AsPath::new(
+            vec![Asn::new(1), Asn::new(2), Asn::new(5), Asn::new(3)],
+            Vec::new(),
+        );
+        let ap2 = AsPath::new(vec![Asn::new(4), Asn::new(2), Asn::new(3)], Vec::new());
+
+        assert!(ap1.is_divergent_with(&ap2));
+    }
+
+    #[test]
+    fn test_is_divergent_with_no_shared_asns_except_origin() {
+        let ap1 = AsPath::new(vec![Asn::new(1), Asn::new(2), Asn::new(5)], Vec::new());
+        let ap2 = AsPath::new(vec![Asn::new(3), Asn::new(4), Asn::new(5)], Vec::new());
+
+        assert!(!ap1.is_divergent_with(&ap2));
+    }
+
+    #[test]
+    fn test_is_divergent_with_different_origins_panics() {
+        assert!(
+            std::panic::catch_unwind(|| {
+                let ap1 = AsPath::new(vec![Asn::new(1), Asn::new(2), Asn::new(3)], Vec::new());
+                let ap2 = AsPath::new(vec![Asn::new(1), Asn::new(2), Asn::new(4)], Vec::new());
+                ap1.is_divergent_with(&ap2);
+            })
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn test_serialize() {
+        let mut ap = AsPath::new(vec![Asn::new(1), Asn::new(2), Asn::new(3)], Vec::new());
+        let route = Route::get_mock(Some(ap.clone()));
+        ap.add_route(route.clone());
+
+        let json = serde_json::to_string(&ap).unwrap();
+        assert!(
+            json == "{\"as_path\":[1,2,3],\"routes\":".to_owned()
+                + serde_json::to_string(&vec![route]).unwrap().as_str()
+                + "}"
+        );
+    }
 
     #[test]
     fn test_as_path_eq() {
@@ -176,39 +454,4 @@ mod tests {
         ]))))));
         assert_ne!(ap_1, ap_2);
     }
-
-    // #[test]
-    // fn test_has_divergence_with() {
-    //     // Shared ASNs - no divergent paths
-    //     let ap_1 = AsPath::get_mock(None);
-    //     let ap_2 = AsPath::get_mock(None);
-    //     assert!(ap_1.len() >= 3);
-    //     assert_eq!(ap_1.get_asns(), ap_2.get_asns());
-    //     assert!(!ap_1.has_divergence_with(&ap_2));
-
-    //     // Shared ASNs - divergent paths
-    //     let mut path_2: Vec<Asn> = ap_1.get_asns().clone();
-    //     path_2.insert(ap_1.len() - 1, Asn::new(23456));
-    //     let ap_2 = AsPath::new(path_2);
-    //     assert_ne!(ap_1.get_asns(), ap_2.get_asns());
-    //     assert!(ap_1.len() >= 3);
-    //     assert!(ap_2.len() >= 3);
-    //     assert!(ap_1.has_divergence_with(&ap_2));
-
-    //     // No shared ASNs - no divergent paths
-    //     let ap_1 = AsPath::new(Vec::from([
-    //         Asn::new(1),
-    //         Asn::new(2),
-    //         Asn::new(3),
-    //     ]));
-    //     let ap_2 = AsPath::new(Vec::from([
-    //         Asn::new(4),
-    //         Asn::new(5),
-    //         Asn::new(6),
-    //     ]));
-    //     assert_ne!(ap_1.get_asns(), ap_2.get_asns());
-    //     assert!(ap_1.len() == 3);
-    //     assert!(ap_2.len() == 3);
-    //     assert!(!ap_1.has_divergence_with(&ap_2));
-    // }
 }
