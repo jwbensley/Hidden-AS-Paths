@@ -40,20 +40,19 @@ impl Hash for AsPath {
 }
 
 impl AsPath {
-    pub fn new(mut as_path: Vec<Asn>, routes: Vec<Route>) -> Self {
+    pub fn new(mut as_path: Vec<Asn>, mut routes: Vec<Route>) -> Self {
         as_path.dedup();
+        routes.dedup();
         AsPath { as_path, routes }
     }
 
     pub fn get_mock(as_path: Option<Vec<Asn>>, routes: Option<Vec<Route>>) -> AsPath {
-        let as_path = as_path.unwrap_or_else(|| {
-            Vec::from([
-                Asn::get_mock(Some(3)),
-                Asn::get_mock(Some(2)),
-                Asn::get_mock(None),
-            ])
-        });
-        let routes = routes.unwrap_or_else(|| Vec::from([Route::get_mock(None)]));
+        let as_path = as_path.unwrap_or(Vec::from([
+            Asn::get_mock(Some(3)),
+            Asn::get_mock(Some(2)),
+            Asn::get_mock(None),
+        ]));
+        let routes = routes.unwrap_or_default();
         AsPath::new(as_path, routes)
     }
 
@@ -121,7 +120,7 @@ impl AsPath {
             "The origin must be the same to compare AS paths for divergence"
         );
 
-        // Compare the paths up to he origin, the origin must be the same
+        // Compare the paths up to but excluding the origin, the origin is the same
         let a_path = self.get_asns().split_last().unwrap().1;
         let b_path = other.get_asns().split_last().unwrap().1;
 
@@ -191,12 +190,12 @@ mod tests {
     fn test_add_route() {
         let mut ap = AsPath::get_mock(None, None);
         let route_1 = Route::get_mock(None);
+        assert_eq!(ap.routes.len(), 0);
+        assert!(!ap.has_route(&route_1));
+
+        ap.add_route(route_1.clone());
         assert_eq!(ap.routes.len(), 1);
         assert!(ap.has_route(&route_1));
-
-        let route_2 = Route::get_mock(Some(AsPath::get_mock(Some(vec![Asn::new(999)]), None)));
-        ap.add_route(route_2.clone());
-        assert_eq!(ap.routes.len(), 2);
     }
 
     #[test]
@@ -274,7 +273,7 @@ mod tests {
         let route1 = Route::get_mock(None);
         let route2 = Route::get_mock(None);
         let ap = AsPath::new(Vec::new(), vec![route1.clone(), route2.clone()]);
-        assert_eq!(ap.get_routes(), &vec![route1, route2]);
+        assert_eq!(ap.get_routes(), &vec![route1]);
     }
 
     #[test]

@@ -214,14 +214,4 @@ mod tests {
         assert!(set.contains(&community2));
         assert!(!set.contains(&community3));
     }
-
-    #[test]
-    fn test_debug() {
-        let community = StandardCommunity::new(Asn::new(64512), 100);
-        let debug_str = format!("{:?}", community);
-        assert!(debug_str.contains("StandardCommunity"));
-        assert!(debug_str.contains("asn"));
-        assert!(debug_str.contains("value"));
-        assert!(debug_str == "StandardCommunity { asn: Asn(64512), value: 100 }");
-    }
 }

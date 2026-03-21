@@ -225,12 +225,18 @@ mod tests {
 
         assert_eq!(
             paths.get_origin_as_paths(&Asn::get_mock(None)),
-            &OriginAsPaths::get_mock(None)
+            &OriginAsPaths::get_mock(None, None)
         );
+    }
 
-        assert_ne!(
-            paths.get_origin_as_paths(&Asn::get_mock(None)),
-            &OriginAsPaths::get_mock(Some(Asn::get_mock(Some(10))))
+    #[test]
+    fn test_get_origin_as_paths_non_existing() {
+        let paths = Paths::new();
+        assert!(
+            std::panic::catch_unwind(|| {
+                paths.get_origin_as_paths(&Asn::get_mock(None));
+            })
+            .is_err()
         );
     }
 

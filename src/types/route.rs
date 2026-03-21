@@ -54,8 +54,8 @@ impl Route {
         }
     }
 
-    pub fn get_mock(origin: Option<AsPath>) -> Self {
-        let as_path = origin.unwrap_or_else(|| AsPath::get_mock(None, None));
+    pub fn get_mock(as_path: Option<AsPath>) -> Self {
+        let as_path = as_path.unwrap_or(AsPath::get_mock(None, None));
 
         Self {
             as_path,
@@ -114,11 +114,15 @@ mod tests {
     #[test]
     fn test_get_mock_with_none() {
         let route = Route::get_mock(None);
+        assert_eq!(route.as_path, AsPath::get_mock(None, None));
         assert_eq!(route.filename, "mock_filename");
         assert_eq!(route.next_hop, "127.0.0.1".parse::<IpAddr>().unwrap());
         assert_eq!(route.peer, Peer::get_mock());
         assert_eq!(route.prefix, "127.0.0.0/8".parse::<IpNet>().unwrap());
-        assert_eq!(route.communities.len(), 0);
+        assert_eq!(
+            route.communities,
+            Vec::from([StandardCommunity::get_mock(None)])
+        );
     }
 
     #[test]
