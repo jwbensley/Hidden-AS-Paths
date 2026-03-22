@@ -68,7 +68,7 @@ fn parse_rib_files(rib_files: &Vec<RibFile>, paths: &Arc<RwLock<Paths>>) {
                     }
                 });
             info!(
-                "Finished, parsed {} records",
+                "Finished parsing {} records",
                 parsed.load(std::sync::atomic::Ordering::SeqCst)
             );
         } else {
