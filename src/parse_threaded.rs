@@ -6,6 +6,7 @@ use bgpkit_parser::BgpkitParser;
 use log::{debug, info};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use rayon::prelude::*;
+use std::sync::atomic::AtomicU32;
 use std::sync::{Arc, RwLock};
 
 /// Setup and call parallel parsing of RIB files
@@ -44,6 +45,11 @@ fn parse_rib_files(rib_files: &Vec<RibFile>, paths: &Arc<RwLock<Paths>>) {
             BgpkitParser::new(fp.as_str()).unwrap_or_else(|_| panic!("Unable to parse {}", fp));
 
         if rib_files.len() == 1 {
+            // Defined a thread safe atomic counter.
+            // All threads will increment this counter when they finish parsing a record.
+            // If the counter is a multiple of 100000, print the number of records parsed so far.
+            let parsed = Arc::new(AtomicU32::new(0));
+
             // If there is only one file, parse that file across all available threads
             parser
                 .into_record_iter()
@@ -52,20 +58,28 @@ fn parse_rib_files(rib_files: &Vec<RibFile>, paths: &Arc<RwLock<Paths>>) {
                 .for_each(|mrt_entry| {
                     parse_mrt_entry(RecordData::new(
                         &mrt_entry,
-                        &Arc::clone(&paths),
+                        &Arc::clone(paths),
                         &peer_table,
                         fp,
-                    ))
+                    ));
+                    let parsed = parsed.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
+                    if parsed.is_multiple_of(100000) {
+                        info!("Parsed {} records", parsed);
+                    }
                 });
+            info!(
+                "Finished, parsed {} records",
+                parsed.load(std::sync::atomic::Ordering::SeqCst)
+            );
         } else {
             // If there are multiple files, just parse this file in this thread
             parser.into_record_iter().skip(1).for_each(|mrt_entry| {
                 parse_mrt_entry(RecordData::new(
                     &mrt_entry,
-                    &Arc::clone(&paths),
+                    &Arc::clone(paths),
                     &peer_table,
                     fp,
-                ))
+                ));
             });
         }
 

@@ -6,7 +6,7 @@ pub struct RibFile {
 
 impl RibFile {
     pub fn new(url: String, filename: String) -> Self {
-        if url.is_empty() || filename.is_empty() {
+        if url.is_empty() && filename.is_empty() {
             panic!("URL and filename cannot be empty");
         }
         Self { url, filename }

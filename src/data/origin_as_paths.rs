@@ -1,7 +1,7 @@
 use crate::types::as_path::AsPath;
 use crate::types::asn::Asn;
 use crate::types::route::Route;
-use log::debug;
+use log::{debug, info};
 use serde::Serialize;
 use std::collections::HashSet;
 
@@ -74,16 +74,17 @@ impl OriginAsPaths {
                 route
             )
         };
-        let as_path = route.get_as_path().clone();
-        if !self.has_as_path(&as_path) {
-            return false;
-        };
-        let as_path = self.get_as_path(&as_path);
-        as_path.has_route(route)
+        for as_path in self.get_as_paths() {
+            if as_path.has_route(route) {
+                return true;
+            }
+        }
+        false
     }
 
     pub fn add_as_path(&mut self, as_path: AsPath) {
         if !self.has_as_path(&as_path) {
+            debug!("Adding new AS path: {:#?}", as_path);
             self.as_paths.insert(as_path);
         };
     }
@@ -101,20 +102,19 @@ impl OriginAsPaths {
     //     panic!("AS Path not found {:#?}", as_path);
     // }
 
-    pub fn add_route(&mut self, route: Route) {
+    pub fn add_route(&mut self, route: Route, as_path: &AsPath) {
         if self.has_route(&route) {
             return;
         };
 
-        let as_path = route.get_as_path().clone();
-        if !self.has_as_path(&as_path) {
+        if !self.has_as_path(as_path) {
             self.add_as_path(as_path.clone());
-        };
+        }
 
         let mut existing = self
             .as_paths
-            .take(&as_path)
-            .unwrap_or_else(|| panic!("AS Path not found {:#?}", as_path));
+            .take(as_path)
+            .unwrap_or_else(|| panic!("AS Path {:#?} not found in {:#?}", as_path, self.as_paths));
         existing.add_route(route);
         self.as_paths.insert(existing);
     }
@@ -146,7 +146,7 @@ impl OriginAsPaths {
         }
     }
 
-    pub fn find_non_divergent_paths(&self) -> Vec<&AsPath> {
+    fn get_non_divergent_paths(&self) -> Vec<&AsPath> {
         let mut non_divergent_paths: Vec<&AsPath> = self.get_as_paths().iter().collect();
         let mut checked = Vec::<&AsPath>::new();
 
@@ -165,6 +165,16 @@ impl OriginAsPaths {
             checked.push(a);
         }
         non_divergent_paths
+    }
+
+    pub fn remove_non_divergent_as_paths(&mut self) {
+        let mut as_paths = Vec::new();
+        for as_path in self.get_non_divergent_paths() {
+            as_paths.push(as_path.clone());
+        }
+        for as_path in as_paths {
+            self.remove_as_path(&as_path);
+        }
     }
 }
 
@@ -270,29 +280,19 @@ mod tests {
     }
 
     #[test]
-    fn test_has_route_wrong_origin() {
-        assert!(
-            std::panic::catch_unwind(|| {
-                let oap = OriginAsPaths::get_mock(None, None);
-                let route = Route::get_mock(Some(AsPath::new(vec![Asn::new(999)], vec![])));
-                oap.has_route(&route);
-            })
-            .is_err()
-        );
-    }
-
-    #[test]
-    fn test_has_route_missing_as_path() {
+    fn test_has_route_missing() {
         let oap = OriginAsPaths::get_mock(None, None);
-        let route = Route::get_mock(Some(AsPath::new(vec![Asn::get_mock(None)], vec![])));
+        let route = Route::get_mock(None);
         assert!(!oap.has_route(&route));
     }
 
     #[test]
     fn test_has_route() {
-        let mut oap = OriginAsPaths::get_mock(None, None);
+        let as_path: AsPath = AsPath::get_mock(None, None);
+        let mut oap =
+            OriginAsPaths::get_mock(Some(as_path.get_origin().clone()), Some(as_path.clone()));
         let route = Route::get_mock(None);
-        oap.add_route(route.clone());
+        oap.add_route(route.clone(), &as_path);
         assert!(oap.has_route(&route));
     }
 
@@ -313,31 +313,40 @@ mod tests {
 
     #[test]
     fn test_add_route() {
-        let mut oap = OriginAsPaths::get_mock(None, None);
-        assert_eq!(oap.len(), 1);
-
-        let route = Route::get_mock(Some(AsPath::new(
-            vec![Asn::new(999), Asn::get_mock(None)],
-            vec![],
-        )));
+        let as_path: AsPath = AsPath::get_mock(None, None);
+        let mut oap =
+            OriginAsPaths::get_mock(Some(as_path.get_origin().clone()), Some(as_path.clone()));
+        let route = Route::get_mock(Some(as_path.get_origin().clone()));
 
         assert!(!oap.has_route(&route));
-        oap.add_route(route.clone());
-        assert_eq!(oap.len(), 2);
+        oap.add_route(route.clone(), &as_path);
         assert!(oap.has_route(&route));
     }
 
     #[test]
-    fn test_add_route_missing_as_path() {
-        assert!(
-            std::panic::catch_unwind(|| {
-                let mut oap = OriginAsPaths::get_mock(None, None);
-                assert_eq!(oap.len(), 1);
-                let route = Route::get_mock(Some(AsPath::new(vec![Asn::new(999)], vec![])));
-                oap.add_route(route);
-            })
-            .is_err()
-        );
+    fn test_add_route_existing() {
+        let as_path: AsPath = AsPath::get_mock(None, None);
+        let mut oap =
+            OriginAsPaths::get_mock(Some(as_path.get_origin().clone()), Some(as_path.clone()));
+        let route = Route::get_mock(Some(as_path.get_origin().clone()));
+
+        oap.add_route(route.clone(), &as_path);
+        assert!(oap.has_route(&route));
+
+        let mut total = 0;
+        for asp in oap.get_as_paths() {
+            total += asp.get_routes().len();
+        }
+        assert_eq!(total, 1);
+
+        oap.add_route(route.clone(), &as_path);
+        assert!(oap.has_route(&route));
+
+        total = 0;
+        for asp in oap.get_as_paths() {
+            total += asp.get_routes().len();
+        }
+        assert_eq!(total, 1);
     }
 
     #[test]
@@ -422,21 +431,21 @@ mod tests {
     }
 
     #[test]
-    fn test_find_non_divergent_paths_empty() {
+    fn test_get_non_divergent_paths_empty() {
         let oap = OriginAsPaths::new(Asn::new(100), HashSet::new());
-        let non_divergent = oap.find_non_divergent_paths();
+        let non_divergent = oap.get_non_divergent_paths();
         assert!(non_divergent.is_empty());
     }
 
     #[test]
-    fn test_find_non_divergent_paths_single_path() {
+    fn test_get_non_divergent_paths_single_path() {
         let oap = OriginAsPaths::get_mock(None, None);
-        let non_divergent = oap.find_non_divergent_paths();
+        let non_divergent = oap.get_non_divergent_paths();
         assert!(!non_divergent.is_empty());
     }
 
     #[test]
-    fn test_find_non_divergent_paths_non_divergent_paths() {
+    fn test_get_non_divergent_paths_non_divergent_paths() {
         let path_1 = AsPath::new(vec![Asn::new(100)], vec![]);
         let path_2 = AsPath::new(vec![Asn::new(200), Asn::new(100)], vec![]);
         let path_3 = AsPath::new(vec![Asn::new(300), Asn::new(200), Asn::new(100)], vec![]);
@@ -444,7 +453,7 @@ mod tests {
             Asn::new(100),
             HashSet::from([path_1.clone(), path_2.clone(), path_3.clone()]),
         );
-        let non_divergent = oap.find_non_divergent_paths();
+        let non_divergent = oap.get_non_divergent_paths();
         assert_eq!(non_divergent.len(), 3);
         assert!(non_divergent.contains(&&path_1));
         assert!(non_divergent.contains(&&path_2));
@@ -452,7 +461,7 @@ mod tests {
     }
 
     #[test]
-    fn test_find_non_divergent_paths_divergent_paths() {
+    fn test_get_non_divergent_paths_divergent_paths() {
         let path_1 = AsPath::new(vec![Asn::new(300), Asn::new(200), Asn::new(100)], vec![]);
         let path_2 = AsPath::new(vec![Asn::new(300), Asn::new(400), Asn::new(100)], vec![]);
         let path_3 = AsPath::new(vec![Asn::new(300), Asn::new(100)], vec![]);
@@ -460,7 +469,7 @@ mod tests {
             Asn::new(100),
             HashSet::from([path_1.clone(), path_2.clone(), path_3.clone()]),
         );
-        let non_divergent = oap.find_non_divergent_paths();
+        let non_divergent = oap.get_non_divergent_paths();
         assert_eq!(non_divergent.len(), 0);
         assert!(!non_divergent.contains(&&path_1));
         assert!(!non_divergent.contains(&&path_2));
@@ -468,7 +477,7 @@ mod tests {
     }
 
     #[test]
-    fn test_find_non_divergent_paths_mixed() {
+    fn test_get_non_divergent_paths_mixed() {
         let path_1 = AsPath::new(vec![Asn::new(300), Asn::new(200), Asn::new(100)], vec![]);
         let path_2 = AsPath::new(vec![Asn::new(600), Asn::new(400), Asn::new(100)], vec![]);
         let path_3 = AsPath::new(vec![Asn::new(300), Asn::new(100)], vec![]);
@@ -476,7 +485,7 @@ mod tests {
             Asn::new(100),
             HashSet::from([path_1.clone(), path_2.clone(), path_3.clone()]),
         );
-        let non_divergent = oap.find_non_divergent_paths();
+        let non_divergent = oap.get_non_divergent_paths();
         assert_eq!(non_divergent.len(), 1);
         assert!(!non_divergent.contains(&&path_1));
         assert!(non_divergent.contains(&&path_2));

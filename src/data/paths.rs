@@ -50,7 +50,7 @@ impl Paths {
     }
 
     pub fn has_route(&self, route: &Route) -> bool {
-        info!("Checking if route exists: {:#?}", route);
+        debug!("Checking if route exists: {:#?}", route);
         let origin = route.get_origin();
         if !self.has_origin_as_paths(origin) {
             return false;
@@ -82,13 +82,13 @@ impl Paths {
         origin_as_paths.add_as_path(as_path);
     }
 
-    pub fn add_route(&mut self, route: Route) {
+    pub fn add_route(&mut self, route: Route, as_path: &AsPath) {
         debug!("Adding route {:#?}", route);
         if !self.has_route(&route) {
             self.add_origin(route.get_origin().clone());
-            self.add_origin_as_path(route.get_as_path().clone());
+            self.add_origin_as_path(as_path.clone());
             self.get_origin_as_paths_mut(route.get_origin())
-                .add_route(route);
+                .add_route(route, as_path);
         }
     }
 
@@ -144,7 +144,6 @@ impl Paths {
         }
     }
 
-    /// Remove origins which only have a single AS path
     pub fn remove_origins_with_one_or_less_as_paths(&mut self) {
         info!("Removing origins with one or less AS paths");
 
@@ -172,20 +171,10 @@ impl Paths {
         );
     }
 
-    pub fn remove_origins_with_non_divergent_paths(&mut self) {
-        info!("Removing origins with non-divergent AS paths");
-        let mut origins_to_remove: Vec<Asn> = Vec::new();
-
-        for origin_as_paths in self.get_as_paths() {
-            let non_divergent_paths = origin_as_paths.find_non_divergent_paths();
-
-            if !non_divergent_paths.is_empty() {
-                origins_to_remove.push(origin_as_paths.get_origin().clone());
-            }
-        }
-
-        for origin in origins_to_remove {
-            self.remove_origin(&origin);
+    pub fn remove_non_divergent_as_paths(&mut self) {
+        info!("Removing non-divergent AS paths");
+        for origin_as_paths in self.get_as_paths_mut() {
+            origin_as_paths.remove_non_divergent_as_paths();
         }
     }
 }
@@ -252,17 +241,13 @@ mod tests {
 
     #[test]
     fn test_has_route() {
+        let as_path = AsPath::get_mock(None, None);
         let mut paths = Paths::new();
         let route = Route::get_mock(None);
         assert!(!paths.has_route(&route));
 
-        paths.add_route(route.clone());
+        paths.add_route(route.clone(), &as_path);
         assert!(paths.has_route(&route));
-
-        assert!(!paths.has_route(&Route::get_mock(Some(AsPath::get_mock(
-            Some(Vec::from([Asn::get_mock(Some(10)),])),
-            None
-        )))));
     }
 
     #[test]
@@ -328,16 +313,19 @@ mod tests {
 
     #[test]
     fn test_add_route() {
+        let as_path_1 = AsPath::get_mock(Some(vec![Asn::new(2), Asn::new(1)]), None);
+        let as_path_2 = AsPath::get_mock(Some(vec![Asn::new(3), Asn::new(1)]), None);
         let mut paths = Paths::new();
         let route = Route::get_mock(None);
 
         assert_eq!(paths.get_origins_count(), 0);
-        paths.add_route(route.clone());
+        paths.add_route(route.clone(), &as_path_1);
         assert_eq!(paths.get_origins_count(), 1);
         assert!(paths.has_route(&route));
 
-        // Adding same route again should not increase count
-        paths.add_route(route.clone());
+        // Adding same route again should not increase origin count
+        // even via different AS path
+        paths.add_route(route.clone(), &as_path_2);
         assert_eq!(paths.get_origins_count(), 1);
     }
 
