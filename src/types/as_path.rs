@@ -28,14 +28,13 @@ impl Serialize for AsPath {
 
 impl PartialEq for AsPath {
     fn eq(&self, other: &Self) -> bool {
-        (self.routes == other.routes) && (self.as_path == other.as_path)
+        self.get_asns() == other.get_asns()
     }
 }
 
 impl Hash for AsPath {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.as_path.hash(state);
-        self.routes.hash(state);
     }
 }
 
@@ -142,6 +141,8 @@ impl AsPath {
 
 #[cfg(test)]
 mod tests {
+    use crate::types::{community::StandardCommunity, peer::Peer};
+
     use super::*;
 
     #[test]
@@ -213,8 +214,8 @@ mod tests {
     #[test]
     fn test_add_multiple_different_routes() {
         let mut ap = AsPath::get_mock(None, None);
-        let route1 = Route::get_mock(Some(AsPath::get_mock(Some(vec![Asn::new(1)]), None)));
-        let route2 = Route::get_mock(Some(AsPath::get_mock(Some(vec![Asn::new(2)]), None)));
+        let route1 = Route::get_mock(Some(Asn::new(1)));
+        let route2 = Route::get_mock(Some(Asn::new(2)));
 
         ap.add_route(route1.clone());
         ap.add_route(route2.clone());
@@ -406,7 +407,7 @@ mod tests {
     #[test]
     fn test_serialize() {
         let mut ap = AsPath::new(vec![Asn::new(1), Asn::new(2), Asn::new(3)], Vec::new());
-        let route = Route::get_mock(Some(ap.clone()));
+        let route = Route::get_mock(Some(ap.get_origin().clone()));
         ap.add_route(route.clone());
 
         let json = serde_json::to_string(&ap).unwrap();
@@ -427,34 +428,49 @@ mod tests {
         assert_eq!(ap_1, ap_2);
 
         // EQ with same explicit origin and explicit AS path
-        ap_1 = AsPath::get_mock(Some(Vec::from([Asn::new(1)])), None);
-        ap_1.add_route(Route::get_mock(Some(ap_1.clone())));
-        ap_2 = AsPath::get_mock(Some(Vec::from([Asn::new(1)])), None);
-        ap_2.add_route(Route::get_mock(Some(ap_2.clone())));
+        ap_1 = AsPath::get_mock(Some(vec![Asn::new(1)]), None);
+        ap_1.add_route(Route::get_mock(Some(ap_1.get_origin().clone())));
+        ap_2 = AsPath::get_mock(Some(vec![Asn::new(1)]), None);
+        ap_2.add_route(Route::get_mock(Some(ap_2.get_origin().clone())));
         assert_eq!(ap_1, ap_2);
     }
 
     #[test]
     fn test_as_path_ne() {
+        let asn_1 = Asn::new(1);
+        let asn_2 = Asn::new(2);
+
         // NE with different origins
-        let mut ap_1 = AsPath::get_mock(Some(Vec::from([Asn::new(1)])), None);
-        let mut ap_2 = AsPath::get_mock(Some(Vec::from([Asn::new(2)])), None);
+        let mut ap_1 = AsPath::get_mock(Some(vec![asn_1.clone()]), None);
+        let mut ap_2 = AsPath::get_mock(Some(vec![asn_2.clone()]), None);
         assert_ne!(ap_1, ap_2);
 
         // NE if missing Route
-        ap_1 = AsPath::get_mock(Some(Vec::from([Asn::new(1)])), None);
-        ap_1.add_route(Route::get_mock(Some(ap_1.clone())));
-        ap_2 = AsPath::get_mock(Some(Vec::from([Asn::new(1)])), None);
+
+        ap_1 = AsPath::get_mock(
+            Some(vec![asn_1.clone()]),
+            Some(vec![Route::get_mock(Some(asn_1.clone()))]),
+        );
+        ap_2 = AsPath::get_mock(Some(vec![asn_1.clone()]), None);
         assert_ne!(ap_1, ap_2);
 
         // NE if different routes
-        ap_1 = AsPath::get_mock(Some(Vec::from([Asn::new(1)])), None);
-        ap_1.add_route(Route::get_mock(Some(ap_1.clone())));
-        ap_2 = AsPath::get_mock(Some(Vec::from([Asn::new(1)])), None);
-        ap_1.add_route(Route::get_mock(Some(AsPath::get_mock(
-            Some(Vec::from([Asn::new(2)])),
-            None,
-        ))));
+        ap_1 = AsPath::get_mock(
+            Some(vec![asn_1.clone()]),
+            Some(vec![Route::get_mock(Some(asn_1.clone()))]),
+        );
+        ap_2 = AsPath::get_mock(
+            Some(vec![asn_1.clone()]),
+            Some(vec![Route::new(
+                asn_1.clone(),
+                String::from("sadadadadad"),
+                "10.72.69.214".parse().unwrap(),
+                Peer::get_mock(),
+                "127.36.88.0/28".parse().unwrap(),
+                Vec::from([StandardCommunity::get_mock(None)]),
+            )]),
+        );
+
         assert_ne!(ap_1, ap_2);
     }
 }

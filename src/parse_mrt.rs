@@ -1,6 +1,7 @@
 use crate::data::paths::Paths;
 use crate::data::record_data::RecordData;
-use crate::types::as_path::AsPath;
+use crate::types::as_path::{self, AsPath};
+use crate::types::asn::Asn;
 use crate::types::community::StandardCommunity;
 use crate::types::peer::PeerTable;
 use crate::types::route::Route;
@@ -160,14 +161,13 @@ fn get_communities(rib_entry: &RibEntry) -> Vec<StandardCommunity> {
     }
 }
 
-fn build_route(mrt_data: &RecordData, rib_entry: &RibEntry, prefix: &IpNet) -> Route {
-    let as_sequence = get_as_sequence(rib_entry, mrt_data.mrt_fp);
+fn build_route(mrt_data: &RecordData, rib_entry: &RibEntry, prefix: &IpNet, origin: Asn) -> Route {
     let peer = mrt_data.peer_table.get_peer(&rib_entry.peer_index);
     let next_hop = get_next_hop(rib_entry, mrt_data.mrt_fp);
     let communities = get_communities(rib_entry);
 
     Route::new(
-        as_sequence,
+        origin,
         mrt_data.mrt_fp.clone(),
         next_hop,
         peer.to_owned(),
@@ -179,9 +179,11 @@ fn build_route(mrt_data: &RecordData, rib_entry: &RibEntry, prefix: &IpNet) -> R
 /// Extract the route from the RIB entry and the AS path for that route, then add the path
 /// and route at the end of the path to the list of paths for the origin AS.
 pub fn parse_rib_entry(prefix: IpNet, rib_entry: &RibEntry, mrt_data: &RecordData) {
-    let route = build_route(mrt_data, rib_entry, &prefix);
+    let as_sequence = get_as_sequence(rib_entry, mrt_data.mrt_fp);
+    let origin = as_sequence.get_origin().clone();
+    let route = build_route(mrt_data, rib_entry, &prefix, origin);
 
-    if route.get_as_path().is_empty() {
+    if as_sequence.is_empty() {
         // Some collectors include iBGP paths or self originated prefixes with no AS path
         return;
     }
@@ -193,7 +195,6 @@ pub fn parse_rib_entry(prefix: IpNet, rib_entry: &RibEntry, mrt_data: &RecordDat
     }
     if !has_path {
         let mut paths = mrt_data.paths.write().unwrap();
-        //paths.add_route(route.clone());
-        paths.add_origin_as_path(route.get_as_path().clone());
+        paths.add_route(route.clone(), &as_sequence);
     }
 }
