@@ -1,7 +1,7 @@
 use crate::types::as_path::AsPath;
 use crate::types::asn::Asn;
 use crate::types::route::Route;
-use log::{debug, info};
+use log::debug;
 use serde::Serialize;
 use std::collections::HashSet;
 
@@ -173,6 +173,22 @@ impl OriginAsPaths {
             as_paths.push(as_path.clone());
         }
         for as_path in as_paths {
+            self.remove_as_path(&as_path);
+        }
+    }
+
+    pub fn remove_as_paths_with_only_known_community_asns(&mut self, known_asns: &[Asn]) {
+        let mut to_remove = Vec::new();
+        for as_path in self.get_as_paths() {
+            if !as_path.has_unknown_community_asns(known_asns) {
+                to_remove.push(as_path.clone());
+            }
+        }
+        debug!(
+            "AS Paths with unknown communities to remove: {}",
+            to_remove.len()
+        );
+        for as_path in to_remove {
             self.remove_as_path(&as_path);
         }
     }

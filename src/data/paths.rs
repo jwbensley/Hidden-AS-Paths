@@ -177,6 +177,13 @@ impl Paths {
             origin_as_paths.remove_non_divergent_as_paths();
         }
     }
+
+    pub fn remove_as_paths_with_only_known_community_asns(&mut self, known_asns: &[Asn]) {
+        info!("Removing AS paths with only known community ASNs");
+        for origin_as_paths in self.get_as_paths_mut() {
+            origin_as_paths.remove_as_paths_with_only_known_community_asns(known_asns);
+        }
+    }
 }
 
 #[cfg(test)]

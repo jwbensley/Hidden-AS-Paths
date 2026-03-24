@@ -66,12 +66,25 @@ impl Route {
         }
     }
 
+    fn get_communities(&self) -> &Vec<StandardCommunity> {
+        &self.communities
+    }
+
     pub fn get_origin(&self) -> &Asn {
         &self.origin
     }
 
     pub fn get_prefix(&self) -> &IpNet {
         &self.prefix
+    }
+
+    pub fn has_unknown_community_asns(&self, known_asns: &[Asn]) -> bool {
+        for community in self.get_communities() {
+            if !known_asns.contains(community.get_asn()) {
+                return true;
+            }
+        }
+        false
     }
 }
 
