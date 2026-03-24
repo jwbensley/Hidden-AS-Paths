@@ -137,6 +137,18 @@ impl AsPath {
         }
         false
     }
+
+    pub fn has_unknown_community_asns(&self, known_asns: &[Asn]) -> bool {
+        // The list of valid ASNs for the ASN part of a standard community includes:
+        // * ASNs from the AS path
+        // * ASNs of known IXP route servers
+        // * AS 0 which is widely used for "reasons"
+
+        self.get_routes().iter().any(|route| {
+            route
+                .has_unknown_community_asns(&[known_asns, self.get_asns(), &[Asn::new(0)]].concat())
+        })
+    }
 }
 
 #[cfg(test)]

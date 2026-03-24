@@ -1,7 +1,8 @@
+use crate::types::asn::Asn;
 use log::{debug, info};
 use rusqlite::Connection;
 
-pub fn get_ixp_rs_asns(filename: &String) -> Vec<u32> {
+pub fn get_ixp_rs_asns(filename: &String) -> Vec<Asn> {
     debug!("Loading peeringdb data from {:?}", filename);
     let conn = Connection::open(filename).unwrap();
 
@@ -11,10 +12,10 @@ pub fn get_ixp_rs_asns(filename: &String) -> Vec<u32> {
         )
         .unwrap();
 
-    let asns: Vec<u32> = stmt
+    let asns: Vec<Asn> = stmt
         .query_map([], |row| row.get(0))
         .unwrap()
-        .map(|res| res.unwrap())
+        .map(|res| Asn::new(res.unwrap()))
         .collect();
 
     info!("Loaded {} ASNs from PeeringDB", asns.len());

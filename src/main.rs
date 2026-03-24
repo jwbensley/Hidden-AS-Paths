@@ -12,6 +12,7 @@ use crate::clients::mrt_archives::download_ribs_for_day;
 use crate::clients::peeringdb::get_ixp_rs_asns;
 use crate::data::paths::Paths;
 use crate::parse_threaded::init_parallel_parsing;
+use crate::types::asn::Asn;
 use crate::types::rib::RibFile;
 use rayon::ThreadPoolBuilder;
 
@@ -45,7 +46,7 @@ fn get_paths(args: &CliArgs) -> Paths {
     }
 }
 
-fn filter_paths(mut paths: Paths, args: &CliArgs) {
+fn filter_paths(paths: &mut Paths, filename: &String) {
     paths.print_summary();
     paths.remove_single_hop_as_paths();
     paths.print_summary();
@@ -53,12 +54,15 @@ fn filter_paths(mut paths: Paths, args: &CliArgs) {
     paths.print_summary();
     paths.remove_origins_with_one_or_less_as_paths();
     paths.print_summary();
-    paths.to_file(&args.paths);
+    paths.to_file(filename);
 }
 
-fn filter_paths_by_community() {
-    // ASN 0 is a special ASN used by many networks as an action community.
-    // asns.insert(0, 0);
+fn filter_paths_by_community(paths: &mut Paths, known_asns: &[Asn], filename: &String) {
+    paths.remove_as_paths_with_only_known_community_asns(known_asns);
+    paths.print_summary();
+    paths.remove_origins_with_one_or_less_as_paths();
+    paths.print_summary();
+    paths.to_file(filename);
 }
 
 fn main() {
@@ -75,6 +79,7 @@ fn main() {
         .unwrap();
 
     let _ixp_rs_asns = get_ixp_rs_asns(&args.peeringdb);
-    let paths = get_paths(&args);
-    filter_paths(paths, &args);
+    let mut paths = get_paths(&args);
+    filter_paths(&mut paths, &args.paths);
+    filter_paths_by_community(&mut paths, &_ixp_rs_asns, &args.paths);
 }

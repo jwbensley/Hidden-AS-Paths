@@ -1,6 +1,6 @@
 use crate::data::paths::Paths;
 use crate::data::record_data::RecordData;
-use crate::types::as_path::{self, AsPath};
+use crate::types::as_path::AsPath;
 use crate::types::asn::Asn;
 use crate::types::community::StandardCommunity;
 use crate::types::peer::PeerTable;
