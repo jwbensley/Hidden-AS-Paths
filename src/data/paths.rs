@@ -7,7 +7,7 @@ use core::panic;
 use log::{debug, info};
 use serde::Serialize;
 use serde_json;
-use std::collections::hash_map::{Keys, Values, ValuesMut};
+use std::collections::hash_map::{Drain, Keys, Values, ValuesMut};
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io::BufWriter;
@@ -75,10 +75,11 @@ impl Paths {
     }
 
     pub fn add_origin_as_path(&mut self, as_path: AsPath) {
-        if !self.has_origin_as_paths(as_path.get_origin()) {
-            self.add_origin(as_path.get_origin().clone());
+        let origin = as_path.get_origin();
+        if !self.has_origin_as_paths(origin) {
+            self.add_origin(origin.clone());
         }
-        let origin_as_paths = self.get_origin_as_paths_mut(as_path.get_origin());
+        let origin_as_paths = self.get_origin_as_paths_mut(origin);
         origin_as_paths.add_as_path(as_path);
     }
 
@@ -189,6 +190,22 @@ impl Paths {
         info!("Removing communities with known ASNs");
         for origin_as_paths in self.get_as_paths_mut() {
             origin_as_paths.remove_communities_with_known_asns(known_asns);
+        }
+    }
+
+    fn pop_all(&mut self) -> Drain<'_, Asn, OriginAsPaths> {
+        self.paths.drain()
+    }
+
+    pub fn merge_from(&mut self, other: &mut Paths) {
+        // Drain other's map so we take ownership of each OriginAsPaths.
+        for (_origin, mut origin_as_paths) in other.pop_all() {
+            for mut as_path in origin_as_paths.pop_as_paths() {
+                let a = as_path.clone();
+                for route in as_path.pop_route() {
+                    self.add_route(route, &a);
+                }
+            }
         }
     }
 }

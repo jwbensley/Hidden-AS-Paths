@@ -4,6 +4,7 @@ use crate::types::route::Route;
 use log::debug;
 use serde::Serialize;
 use std::collections::HashSet;
+use std::collections::hash_set::Drain;
 
 /// A set of AS paths which all point to the same origin ASN
 #[derive(Debug, Clone, Serialize)]
@@ -42,14 +43,14 @@ impl OriginAsPaths {
         &self.as_paths
     }
 
-    pub fn has_as_path(&self, as_path: &AsPath) -> bool {
-        for a in self.get_as_paths() {
-            if a.get_asns() == as_path.get_asns() {
-                debug!("AS path found: {:#?}", as_path);
+    pub fn has_as_path(&self, new_path: &AsPath) -> bool {
+        for existing_path in self.get_as_paths() {
+            if existing_path.get_asns() == new_path.get_asns() {
+                debug!("AS path found: {:#?}", new_path);
                 return true;
             }
         }
-        debug!("AS path not found: {:#?}", as_path);
+        debug!("AS path not found: {:#?}", new_path);
         false
     }
 
@@ -77,11 +78,15 @@ impl OriginAsPaths {
         if !self.has_as_path(&as_path) {
             debug!("Adding new AS path: {:#?}", as_path);
             self.as_paths.insert(as_path);
-        };
+        }
     }
 
-    fn get_as_paths_mut(&mut self) -> HashSet<AsPath> {
+    pub fn get_as_paths_mut(&mut self) -> HashSet<AsPath> {
         std::mem::take(&mut self.as_paths)
+    }
+
+    pub fn pop_as_paths(&mut self) -> Drain<'_, AsPath> {
+        self.as_paths.drain()
     }
 
     pub fn add_route(&mut self, route: Route, as_path: &AsPath) {

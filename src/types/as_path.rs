@@ -6,6 +6,7 @@ use log::debug;
 use serde::ser::SerializeStruct as _;
 use serde::{Serialize, Serializer};
 use std::hash::Hash;
+use std::vec::Drain;
 
 /// A deduped AS path which stores one or more routes and can be serialised to JSON.
 #[derive(Debug, Clone, Eq, Default)]
@@ -161,6 +162,14 @@ impl AsPath {
         for route in self.get_routes_mut() {
             route.remove_communities_with_known_asns(&known_asns);
         }
+    }
+
+    pub fn remove_route(&mut self, route: &Route) {
+        self.routes.retain(|r| r != route);
+    }
+
+    pub fn pop_route(&mut self) -> Drain<'_, Route> {
+        self.routes.drain(..)
     }
 }
 
@@ -445,6 +454,8 @@ mod tests {
 
     #[test]
     fn test_as_path_eq() {
+        let asn_1 = Asn::new(1);
+
         // EQ with same default origin and default AS path
         let mut ap_1 = AsPath::get_mock(None, None);
         ap_1.add_route(Route::get_mock(None));
@@ -453,33 +464,21 @@ mod tests {
         assert_eq!(ap_1, ap_2);
 
         // EQ with same explicit origin and explicit AS path
-        ap_1 = AsPath::get_mock(Some(vec![Asn::new(1)]), None);
+        ap_1 = AsPath::get_mock(Some(vec![asn_1.clone()]), None);
         ap_1.add_route(Route::get_mock(Some(ap_1.get_origin().clone())));
-        ap_2 = AsPath::get_mock(Some(vec![Asn::new(1)]), None);
+        ap_2 = AsPath::get_mock(Some(vec![asn_1.clone()]), None);
         ap_2.add_route(Route::get_mock(Some(ap_2.get_origin().clone())));
         assert_eq!(ap_1, ap_2);
-    }
 
-    #[test]
-    fn test_as_path_ne() {
-        let asn_1 = Asn::new(1);
-        let asn_2 = Asn::new(2);
-
-        // NE with different origins
-        let mut ap_1 = AsPath::get_mock(Some(vec![asn_1.clone()]), None);
-        let mut ap_2 = AsPath::get_mock(Some(vec![asn_2.clone()]), None);
-        assert_ne!(ap_1, ap_2);
-
-        // NE if missing Route
-
+        // EQ if missing Route but same AS path and origin
         ap_1 = AsPath::get_mock(
             Some(vec![asn_1.clone()]),
             Some(vec![Route::get_mock(Some(asn_1.clone()))]),
         );
         ap_2 = AsPath::get_mock(Some(vec![asn_1.clone()]), None);
-        assert_ne!(ap_1, ap_2);
+        assert_eq!(ap_1, ap_2);
 
-        // NE if different routes
+        // EQ if different Routes but same AS path and origin
         ap_1 = AsPath::get_mock(
             Some(vec![asn_1.clone()]),
             Some(vec![Route::get_mock(Some(asn_1.clone()))]),
@@ -496,6 +495,17 @@ mod tests {
             )]),
         );
 
+        assert_eq!(ap_1, ap_2);
+    }
+
+    #[test]
+    fn test_as_path_ne() {
+        let asn_1 = Asn::new(1);
+        let asn_2 = Asn::new(2);
+
+        // NE with different origins
+        let ap_1 = AsPath::get_mock(Some(vec![asn_1.clone()]), None);
+        let ap_2 = AsPath::get_mock(Some(vec![asn_2.clone()]), None);
         assert_ne!(ap_1, ap_2);
     }
 }

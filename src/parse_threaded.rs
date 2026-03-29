@@ -9,7 +9,6 @@ use bgpkit_parser::BgpkitParser;
 use log::{debug, info};
 use rayon::ThreadPoolBuilder;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
-use rayon::prelude::*;
 use std::sync::atomic::AtomicU32;
 use std::sync::{Arc, RwLock};
 
@@ -84,28 +83,56 @@ fn parse_rib_files(rib_files: &Vec<RibFile>, paths: &Arc<RwLock<Paths>>) {
             BgpkitParser::new(fp.as_str()).unwrap_or_else(|_| panic!("Unable to parse {}", fp));
 
         if rib_files.len() == 1 {
-            // Defined a thread safe atomic counter.
-            // All threads will increment this counter when they finish parsing a record.
-            // If the counter is a multiple of 100000, print the number of records parsed so far.
+            // Count of records excluding first entry (peer table)
+            let total_records = parser.into_record_iter().skip(1).count();
+            let num_threads = rayon::current_num_threads();
+            // +1 to account for record count not being perfectly divisible by num_threads
+            let per_thread_len = (total_records / num_threads) + 1;
             let parsed = Arc::new(AtomicU32::new(0));
 
-            // If there is only one file, parse that file across all available threads
-            parser
-                .into_record_iter()
-                .skip(1)
-                .par_bridge()
-                .for_each(|mrt_entry| {
-                    parse_mrt_entry(RecordData::new(
-                        &mrt_entry,
-                        &Arc::clone(paths),
-                        &peer_table,
-                        fp,
-                    ));
-                    let parsed = parsed.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
-                    if parsed.is_multiple_of(100000) {
-                        info!("Parsed {} records", parsed);
-                    }
-                });
+            info!(
+                "Going to parse {} records using {} threads, with {} records per thread",
+                total_records, num_threads, per_thread_len
+            );
+
+            (0..num_threads).into_par_iter().for_each(|worker_id| {
+                if per_thread_len == 0 {
+                    return;
+                }
+
+                // Start from 1 to skip peer table
+                let start = 1 + (worker_id * per_thread_len);
+
+                let thread_parser = BgpkitParser::new(fp.as_str())
+                    .unwrap_or_else(|_| panic!("Unable to parse {}", fp));
+                let thread_paths = Arc::new(RwLock::new(Paths::default()));
+                let parsed = Arc::clone(&parsed);
+
+                thread_parser
+                    .into_record_iter()
+                    .skip(start)
+                    .take(per_thread_len)
+                    .for_each(|mrt_entry| {
+                        parse_mrt_entry(RecordData::new(
+                            &mrt_entry,
+                            &Arc::clone(&thread_paths),
+                            &peer_table,
+                            fp,
+                        ));
+                        let parsed = parsed.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
+                        if parsed.is_multiple_of(100000) {
+                            info!("Parsed {} records", parsed);
+                        }
+                    });
+                info!("Thread {} finished parsing", worker_id);
+
+                // Merge thread_paths into the main paths
+                let mut paths = paths.write().unwrap();
+                let mut thread_paths = thread_paths.write().unwrap();
+                paths.merge_from(&mut thread_paths);
+                info!("Thread {} merged its paths", worker_id);
+            });
+
             info!(
                 "Finished parsing {} records",
                 parsed.load(std::sync::atomic::Ordering::SeqCst)
