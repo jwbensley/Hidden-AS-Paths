@@ -77,6 +77,10 @@ impl AsPath {
         &self.routes
     }
 
+    fn get_routes_mut(&mut self) -> &mut Vec<Route> {
+        &mut self.routes
+    }
+
     pub fn has_route(&self, route: &Route) -> bool {
         let present = self.routes.contains(route);
         debug!("Route present {:#?}: {}", route, present);
@@ -138,16 +142,25 @@ impl AsPath {
         false
     }
 
-    pub fn has_unknown_community_asns(&self, known_asns: &[Asn]) -> bool {
-        // The list of valid ASNs for the ASN part of a standard community includes:
-        // * ASNs from the AS path
-        // * ASNs of known IXP route servers
-        // * AS 0 which is widely used for "reasons"
+    /// The list of known ASNs for the ASN part of a standard community includes:
+    /// * ASNs from the AS path
+    /// * ASNs of known IXP route servers
+    /// * AS 0 which is widely used for "reasons"
+    fn get_known_asns(&self, known_asns: &[Asn]) -> Vec<Asn> {
+        [self.get_asns(), known_asns, &[Asn::new(0)]].concat()
+    }
 
-        self.get_routes().iter().any(|route| {
-            route
-                .has_unknown_community_asns(&[known_asns, self.get_asns(), &[Asn::new(0)]].concat())
-        })
+    pub fn has_unknown_community_asns(&self, known_asns: &[Asn]) -> bool {
+        self.get_routes()
+            .iter()
+            .any(|route| route.has_unknown_community_asns(&self.get_known_asns(known_asns)))
+    }
+
+    pub fn remove_communities_with_known_asns(&mut self, known_asns: &[Asn]) {
+        let known_asns = self.get_known_asns(known_asns);
+        for route in self.get_routes_mut() {
+            route.remove_communities_with_known_asns(&known_asns);
+        }
     }
 }
 

@@ -57,15 +57,6 @@ impl OriginAsPaths {
         &self.origin
     }
 
-    fn get_as_path(&self, as_path: &AsPath) -> &AsPath {
-        for a in self.get_as_paths() {
-            if a.get_asns() == as_path.get_asns() {
-                return a;
-            }
-        }
-        panic!("AS Path not found {:#?}", as_path);
-    }
-
     pub fn has_route(&self, route: &Route) -> bool {
         if route.get_origin() != self.get_origin() {
             panic!(
@@ -89,18 +80,9 @@ impl OriginAsPaths {
         };
     }
 
-    // fn get_as_paths_mut(&mut self) -> &mut HashSet<AsPath> {
-    //     &mut self.as_paths
-    // }
-
-    // fn get_as_path_mut(&mut self, as_path: &AsPath) -> &mut AsPath {
-    //     for a in self.get_as_paths_mut().iter() {
-    //         if a.get_asns() == as_path.get_asns() {
-    //             return &mut self.get_as_paths_mut().take(a).unwrap();
-    //         }
-    //     }
-    //     panic!("AS Path not found {:#?}", as_path);
-    // }
+    fn get_as_paths_mut(&mut self) -> HashSet<AsPath> {
+        std::mem::take(&mut self.as_paths)
+    }
 
     pub fn add_route(&mut self, route: Route, as_path: &AsPath) {
         if self.has_route(&route) {
@@ -192,6 +174,15 @@ impl OriginAsPaths {
             self.remove_as_path(&as_path);
         }
     }
+
+    pub fn remove_communities_with_known_asns(&mut self, known_asns: &[Asn]) {
+        let mut updated_paths = HashSet::with_capacity(self.len());
+        for mut as_path in self.get_as_paths_mut() {
+            as_path.remove_communities_with_known_asns(known_asns);
+            updated_paths.insert(as_path);
+        }
+        self.as_paths = updated_paths;
+    }
 }
 
 #[cfg(test)]
@@ -274,25 +265,6 @@ mod tests {
         let origin = Asn::new(42);
         let oap = OriginAsPaths::new(origin.clone(), HashSet::new());
         assert_eq!(oap.get_origin(), &origin);
-    }
-
-    #[test]
-    fn test_get_as_path() {
-        let oap = OriginAsPaths::get_mock(None, None);
-        let as_path = AsPath::get_mock(None, None);
-        assert_eq!(oap.get_as_path(&as_path), &as_path);
-    }
-
-    #[test]
-    fn test_get_as_path_missing() {
-        assert!(
-            std::panic::catch_unwind(|| {
-                let oap = OriginAsPaths::get_mock(None, None);
-                let as_path = AsPath::new(vec![Asn::new(999)], vec![]);
-                oap.get_as_path(&as_path);
-            })
-            .is_err()
-        );
     }
 
     #[test]

@@ -48,12 +48,12 @@ pub mod cli_args {
         #[command(subcommand)]
         pub ribs_source: RibsSource,
 
-        /// Serialise found AS paths to a JSON file
-        #[arg(long, default_value_t = String::from("./paths.json"))]
-        pub paths: String,
+        /// Path to store results files
+        #[arg(short, long, default_value_t = String::from("./results"))]
+        pub results_dir: String,
 
         /// PeeringDB sqlite file
-        #[arg(long, default_value_t = String::from("./peeringdb/peeringdb.sqlite3"))]
+        #[arg(short, long, default_value_t = String::from("./peeringdb/peeringdb.sqlite3"))]
         pub peeringdb: String,
 
         /// Number of threads to use for parsing files

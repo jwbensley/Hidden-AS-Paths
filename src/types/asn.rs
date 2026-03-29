@@ -30,6 +30,33 @@ impl Asn {
         Asn::new(asn.unwrap_or(1))
     }
 
+    pub fn is_private(&self) -> bool {
+        if self.0 == 0 {
+            // RFC 7607
+            true
+        } else if self.0 == 23456 {
+            // RFC 4893
+            true
+        } else if (64496..=64511).contains(&self.0.to_u32()) {
+            // RFC 5398
+            true
+        } else if (64512..=65535).contains(&self.0.to_u32()) {
+            // RFC 6996
+            true
+        } else if (65536..=65551).contains(&self.0.to_u32()) {
+            // RFC 5398
+            true
+        } else if (65552..131071).contains(&self.0.to_u32()) {
+            // IANA reserved
+            true
+        } else if (4200000000..=4294967295).contains(&self.0.to_u32()) {
+            // RFC 6996
+            true
+        } else {
+            false
+        }
+    }
+
     pub fn to_u32(self) -> u32 {
         self.0.to_u32()
     }
@@ -62,6 +89,30 @@ mod tests {
         let asn = Asn::new(54321);
         let asn_u32: u32 = asn.to_u32();
         assert_eq!(asn_u32, 54321);
+    }
+
+    #[test]
+    fn test_is_private() {
+        let private_asns = vec![
+            0, 23456, 64496, 64511, 64512, 65535, 65536, 65551, 65552, 131070, 4200000000,
+            4294967295,
+        ];
+        for as_number in private_asns {
+            assert!(
+                Asn::new(as_number).is_private(),
+                "ASN {} should be private",
+                as_number
+            );
+        }
+
+        let public_asns = vec![1, 64495, 131072, 4199999999];
+        for as_number in public_asns {
+            assert!(
+                !Asn::new(as_number).is_private(),
+                "ASN {} should be public",
+                as_number
+            );
+        }
     }
 
     #[test]
