@@ -1,69 +1,14 @@
+use crate::filter::path_filters::filter_results;
+use crate::parse_threaded::get_paths;
+
 pub mod args;
 pub mod clients;
 pub mod data;
+pub mod filter;
 pub mod logging;
 pub mod parse_mrt;
 pub mod parse_threaded;
 pub mod types;
-
-use crate::args::cli_args::CliArgs;
-use crate::args::cli_args::RibsSource;
-use crate::clients::mrt_archives::download_ribs_for_day;
-use crate::clients::peeringdb::get_ixp_rs_asns;
-use crate::data::paths::Paths;
-use crate::parse_threaded::init_parallel_parsing;
-use crate::types::asn::Asn;
-use crate::types::rib::RibFile;
-use rayon::ThreadPoolBuilder;
-
-fn get_paths(args: &CliArgs) -> Paths {
-    match args.ribs_source {
-        // Download MRT files and then parse them using one thread per file
-        RibsSource::Download(_) => {
-            let rib_files = download_ribs_for_day(args.get_ribs_ymd(), args.get_ribs_path());
-            init_parallel_parsing(&rib_files)
-        }
-
-        // Parse a single existing file split across multiple threads
-        RibsSource::File(_) => {
-            let rib_files = Vec::from([RibFile::new(String::new(), args.get_rib_file().clone())]);
-            init_parallel_parsing(&rib_files)
-        }
-
-        // Parse multiple existing files using one thread per file
-        RibsSource::Files(_) => {
-            let rib_files: Vec<RibFile> = args
-                .get_rib_files()
-                .iter()
-                .map(|filename| RibFile {
-                    url: String::new(),
-                    filename: filename.clone(),
-                })
-                .collect();
-
-            init_parallel_parsing(&rib_files)
-        }
-    }
-}
-
-fn filter_paths(paths: &mut Paths, filename: &String) {
-    paths.print_summary();
-    paths.remove_single_hop_as_paths();
-    paths.print_summary();
-    paths.remove_non_divergent_as_paths();
-    paths.print_summary();
-    paths.remove_origins_with_one_or_less_as_paths();
-    paths.print_summary();
-    paths.to_file(filename);
-}
-
-fn filter_paths_by_community(paths: &mut Paths, known_asns: &[Asn], filename: &String) {
-    paths.remove_as_paths_with_only_known_community_asns(known_asns);
-    paths.print_summary();
-    paths.remove_origins_with_one_or_less_as_paths();
-    paths.print_summary();
-    paths.to_file(filename);
-}
 
 fn main() {
     let args = args::cli_args::parse_cli_arg();
@@ -73,13 +18,6 @@ fn main() {
         logging::setup_logging("info");
     }
 
-    ThreadPoolBuilder::new()
-        .num_threads((args.threads).try_into().unwrap())
-        .build_global()
-        .unwrap();
-
-    let _ixp_rs_asns = get_ixp_rs_asns(&args.peeringdb);
     let mut paths = get_paths(&args);
-    filter_paths(&mut paths, &args.paths);
-    filter_paths_by_community(&mut paths, &_ixp_rs_asns, &args.paths);
+    filter_results(&mut paths, &args);
 }

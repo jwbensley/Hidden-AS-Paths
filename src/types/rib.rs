@@ -15,10 +15,6 @@ impl RibFile {
     pub fn get_filename(&self) -> &String {
         &self.filename
     }
-
-    fn get_url(&self) -> &String {
-        &self.url
-    }
 }
 
 #[cfg(test)]
@@ -41,7 +37,6 @@ mod tests {
 
         for (url, filename) in test_cases {
             let rib_file = RibFile::new(url.to_string(), filename.to_string());
-            assert_eq!(rib_file.get_url(), url);
             assert_eq!(rib_file.get_filename(), filename);
         }
     }

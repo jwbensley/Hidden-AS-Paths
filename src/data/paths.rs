@@ -184,6 +184,13 @@ impl Paths {
             origin_as_paths.remove_as_paths_with_only_known_community_asns(known_asns);
         }
     }
+
+    pub fn remove_communities_with_known_asns(&mut self, known_asns: &[Asn]) {
+        info!("Removing communities with known ASNs");
+        for origin_as_paths in self.get_as_paths_mut() {
+            origin_as_paths.remove_communities_with_known_asns(known_asns);
+        }
+    }
 }
 
 #[cfg(test)]

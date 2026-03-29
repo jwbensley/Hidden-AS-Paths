@@ -79,12 +79,19 @@ impl Route {
     }
 
     pub fn has_unknown_community_asns(&self, known_asns: &[Asn]) -> bool {
+        // Communities with a private ASN are not necessarily "unknown", they may just be internally used communities
+        // which have leaked into the public internet. Therefore, don't consider private ASNs as unknown.
         for community in self.get_communities() {
-            if !known_asns.contains(community.get_asn()) {
+            if !known_asns.contains(community.get_asn()) && !community.get_asn().is_private() {
                 return true;
             }
         }
         false
+    }
+
+    pub fn remove_communities_with_known_asns(&mut self, known_asns: &[Asn]) {
+        self.communities
+            .retain(|community| !known_asns.contains(community.get_asn()));
     }
 }
 
