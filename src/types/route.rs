@@ -23,12 +23,12 @@ impl Serialize for Route {
     where
         S: Serializer,
     {
-        let mut state = serializer.serialize_struct("Route", 6)?;
-        state.serialize_field("origin", &self.origin)?;
-        state.serialize_field("filename", &self.filename)?;
-        state.serialize_field("next_hop", &self.next_hop)?;
-        state.serialize_field("peer", &self.peer)?;
-        state.serialize_field("prefix", &self.prefix.to_string())?;
+        let mut state = serializer.serialize_struct("Route", 1)?;
+        // state.serialize_field("origin", &self.origin)?;
+        // state.serialize_field("filename", &self.filename)?;
+        // state.serialize_field("next_hop", &self.next_hop)?;
+        // state.serialize_field("peer", &self.peer)?;
+        // state.serialize_field("prefix", &self.prefix.to_string())?;
         state.serialize_field("communities", &self.communities)?;
         state.end()
     }

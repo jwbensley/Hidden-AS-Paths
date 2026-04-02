@@ -11,6 +11,7 @@ use std::collections::hash_set::Drain;
 pub struct OriginAsPaths {
     origin: Asn,
     as_paths: HashSet<AsPath>,
+    diverging_asns: Vec<Asn>,
 }
 
 impl PartialEq for OriginAsPaths {
@@ -30,7 +31,11 @@ impl OriginAsPaths {
                 );
             }
         }
-        OriginAsPaths { origin, as_paths }
+        OriginAsPaths {
+            origin,
+            as_paths,
+            diverging_asns: Vec::new(),
+        }
     }
 
     pub fn get_mock(origin: Option<Asn>, as_path: Option<AsPath>) -> OriginAsPaths {
@@ -162,6 +167,30 @@ impl OriginAsPaths {
         for as_path in as_paths {
             self.remove_as_path(&as_path);
         }
+    }
+
+    pub fn populate_diverging_asns(&mut self) {
+        let mut checked = Vec::<&AsPath>::new();
+        let mut diverging_asns = Vec::new();
+
+        for a in self.get_as_paths() {
+            for b in self.get_as_paths() {
+                if a == b {
+                    continue;
+                };
+                if checked.contains(&b) {
+                    continue;
+                }
+                if a.len() == 1 || b.len() == 1 {
+                    continue;
+                }
+                if a.is_divergent_with(b) {
+                    diverging_asns.push(a.get_diverging_asn(b).clone());
+                }
+            }
+            checked.push(a);
+        }
+        self.diverging_asns = diverging_asns;
     }
 
     pub fn remove_as_paths_with_only_known_community_asns(&mut self, known_asns: &[Asn]) {
