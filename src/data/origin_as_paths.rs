@@ -119,6 +119,10 @@ impl OriginAsPaths {
         self.as_paths.len()
     }
 
+    pub fn get_diverging_asns(&self) -> &HashSet<Asn> {
+        &self.diverging_asns
+    }
+
     fn remove_as_path(&mut self, as_path: &AsPath) {
         self.as_paths.remove(as_path);
     }

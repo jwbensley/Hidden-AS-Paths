@@ -7,7 +7,7 @@ use core::panic;
 use log::{debug, info};
 use serde::Serialize;
 use serde_json;
-use std::collections::hash_map::{Drain, Keys, Values, ValuesMut};
+use std::collections::hash_map::{Drain, Keys, ValuesMut};
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io::BufWriter;
@@ -41,11 +41,15 @@ impl Paths {
         self.paths.contains_key(origin)
     }
 
-    fn get_origin_as_paths(&self, origin: &Asn) -> &OriginAsPaths {
-        if self.has_origin_as_paths(origin) {
-            self.paths.get(origin).unwrap()
+    fn get_origin_as_paths(&self, origin: Option<&Asn>) -> Vec<&OriginAsPaths> {
+        if let Some(origin) = origin {
+            if self.has_origin_as_paths(origin) {
+                vec![self.paths.get(origin).unwrap()]
+            } else {
+                panic!("No paths for origin {}", origin);
+            }
         } else {
-            panic!("No paths for origin {}", origin);
+            self.paths.values().collect()
         }
     }
 
@@ -55,7 +59,7 @@ impl Paths {
         if !self.has_origin_as_paths(origin) {
             return false;
         };
-        self.get_origin_as_paths(origin).has_route(route)
+        self.get_origin_as_paths(Some(origin))[0].has_route(route)
     }
 
     fn add_origin(&mut self, origin: Asn) {
@@ -97,13 +101,9 @@ impl Paths {
         self.paths.len()
     }
 
-    fn get_as_paths(&self) -> Values<'_, Asn, OriginAsPaths> {
-        self.paths.values()
-    }
-
     pub fn get_as_paths_count(&self) -> usize {
         let mut total = 0;
-        for origin_as_paths in self.get_as_paths() {
+        for origin_as_paths in self.get_origin_as_paths(None) {
             total += origin_as_paths.len();
         }
         total
@@ -150,7 +150,7 @@ impl Paths {
 
         let mut to_remove = Vec::new();
         for origin in self.get_origins() {
-            if self.get_origin_as_paths(origin).len() <= 1 {
+            if self.get_origin_as_paths(Some(origin))[0].len() <= 1 {
                 to_remove.push(origin.to_owned());
             }
         }
@@ -182,9 +182,6 @@ impl Paths {
     pub fn populate_diverging_asns(&mut self) {
         info!("Populating diverging ASNs for each origin");
         for origin_as_paths in self.get_as_paths_mut() {
-            if origin_as_paths.get_origin().clone().to_u32() != 266364 {
-                continue;
-            }
             origin_as_paths.populate_diverging_asns();
         }
     }
@@ -217,6 +214,17 @@ impl Paths {
                 }
             }
         }
+    }
+
+    pub fn get_divergent_asn_count(&self) -> HashMap<Asn, usize> {
+        let mut count = HashMap::<Asn, usize>::new();
+
+        for origin_as_paths in self.get_origin_as_paths(None) {
+            for asn in origin_as_paths.get_diverging_asns() {
+                *count.entry(asn.clone()).or_insert(0) += 1;
+            }
+        }
+        count
     }
 }
 
@@ -261,10 +269,19 @@ mod tests {
     #[test]
     fn test_get_origin_as_paths() {
         let mut paths = Paths::new();
+
+        assert!(
+            std::panic::catch_unwind(|| {
+                paths.get_origin_as_paths(Some(&Asn::get_mock(None)));
+            })
+            .is_err()
+        );
+
         paths.add_origin_as_path(AsPath::get_mock(None, None));
 
+        assert!(paths.get_origin_as_paths(Some(&Asn::get_mock(None))).len() == 1);
         assert_eq!(
-            paths.get_origin_as_paths(&Asn::get_mock(None)),
+            paths.get_origin_as_paths(Some(&Asn::get_mock(None)))[0],
             &OriginAsPaths::get_mock(None, None)
         );
     }
@@ -274,7 +291,7 @@ mod tests {
         let paths = Paths::new();
         assert!(
             std::panic::catch_unwind(|| {
-                paths.get_origin_as_paths(&Asn::get_mock(None));
+                paths.get_origin_as_paths(Some(&Asn::get_mock(None)))[0];
             })
             .is_err()
         );
@@ -294,11 +311,11 @@ mod tests {
     #[test]
     fn test_add_origin() {
         let mut paths = Paths::new();
-        assert_eq!(paths.get_as_paths().len(), 0);
+        assert_eq!(paths.get_origin_as_paths(None).len(), 0);
         assert!(!paths.has_origin_as_paths(&Asn::get_mock(None)));
 
         paths.add_origin(Asn::get_mock(None));
-        assert_eq!(paths.get_as_paths().len(), 1);
+        assert_eq!(paths.get_origin_as_paths(None).len(), 1);
         assert!(paths.has_origin_as_paths(&Asn::get_mock(None)));
     }
 
@@ -380,15 +397,6 @@ mod tests {
 
         paths.add_origin(Asn::get_mock(Some(10)));
         assert_eq!(paths.get_origins_count(), 2);
-    }
-
-    #[test]
-    fn test_get_as_paths() {
-        let mut paths = Paths::new();
-        assert_eq!(paths.get_as_paths().len(), 0);
-
-        paths.add_origin_as_path(AsPath::get_mock(None, None));
-        assert_eq!(paths.get_as_paths().len(), 1);
     }
 
     #[test]
