@@ -143,6 +143,43 @@ impl AsPath {
         false
     }
 
+    /// Find the the last ASN which is shared by both AS Paths before the paths diverge.
+    /// E.g. 2 is the last shared ASN:
+    /// a = [1, 2, 3]
+    /// b = [6, 2, 4, 3]
+    ///         ^
+    pub fn get_diverging_asn(&self, other: &AsPath) -> &Asn {
+        assert_eq!(
+            self.get_origin(),
+            other.get_origin(),
+            "The origin must be the same to compare AS paths for divergence"
+        );
+
+        // Compare the paths up to but excluding the origin, the origin is the same
+        let a_path = self.get_asns().split_last().unwrap().1;
+        let b_path = other.get_asns().split_last().unwrap().1;
+
+        let mut last_shared_asn: Option<&Asn> = None;
+        let mut last_shared_pos = 0;
+
+        for asn in a_path {
+            let pos = b_path.iter().position(|x| x == asn);
+
+            if let Some(pos) = pos
+                && pos >= last_shared_pos
+            {
+                last_shared_asn = Some(asn);
+                last_shared_pos = pos;
+            } else if pos.is_none() && last_shared_asn.is_some() {
+                break;
+            }
+        }
+        if last_shared_asn.is_none() {
+            panic!("No shared ASN found between AS paths");
+        }
+        last_shared_asn.unwrap()
+    }
+
     /// The list of known ASNs for the ASN part of a standard community includes:
     /// * ASNs from the AS path
     /// * ASNs of known IXP route servers

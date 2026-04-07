@@ -179,6 +179,16 @@ impl Paths {
         }
     }
 
+    pub fn populate_diverging_asns(&mut self) {
+        info!("Populating diverging ASNs for each origin");
+        for origin_as_paths in self.get_as_paths_mut() {
+            if origin_as_paths.get_origin().clone().to_u32() != 266364 {
+                continue;
+            }
+            origin_as_paths.populate_diverging_asns();
+        }
+    }
+
     pub fn remove_as_paths_with_only_known_community_asns(&mut self, known_asns: &[Asn]) {
         info!("Removing AS paths with only known community ASNs");
         for origin_as_paths in self.get_as_paths_mut() {
