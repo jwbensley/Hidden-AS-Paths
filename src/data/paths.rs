@@ -291,7 +291,7 @@ mod tests {
         let paths = Paths::new();
         assert!(
             std::panic::catch_unwind(|| {
-                paths.get_origin_as_paths(Some(&Asn::get_mock(None)))[0];
+                paths.get_origin_as_paths(Some(&Asn::get_mock(None)));
             })
             .is_err()
         );
