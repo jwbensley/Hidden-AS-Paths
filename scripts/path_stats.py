@@ -8,9 +8,8 @@
 # ///
 
 from typing import Any
-
+import argparse
 import orjson
-import sys
 
 
 def get_as_path_count_per_origin(filename: str) -> dict[str, int]:
@@ -32,9 +31,7 @@ def get_as_path_count_per_origin(filename: str) -> dict[str, int]:
 
 def get_freq_of_peer_asn(filename: str) -> dict[str, int]:
     with open(filename, "r") as f:
-        data: dict[str, dict[str, dict[str, list[dict[str, int]]]]] = (
-            orjson.loads(f.read())
-        )
+        data: dict[str, Any] = orjson.loads(f.read())
 
     counts: dict[str, int] = {}
 
@@ -53,11 +50,23 @@ def get_freq_of_peer_asn(filename: str) -> dict[str, int]:
     return sorted_counts
 
 
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Print statistics about the divergent AS paths data"
+    )
+    parser.add_argument(
+        "--filename",
+        "-f",
+        type=str,
+        help="Path to the divergent AS paths JSON file",
+        required=True,
+    )
+    return parser.parse_args()
+
+
 def main():
-    if len(sys.argv) != 2 or not sys.argv[1]:
-        print(f"Usage: {sys.argv[0]} <filename>")
-        sys.exit(1)
-    filename = sys.argv[1]
+    args = parse_args()
+    filename = args.filename
     get_as_path_count_per_origin(filename)
     get_freq_of_peer_asn(filename)
 
