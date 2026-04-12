@@ -3,18 +3,21 @@ use crate::data::origin_as_paths::OriginAsPaths;
 use crate::types::as_path::AsPath;
 use crate::types::asn::Asn;
 use crate::types::route::Route;
+use crate::types::sorted_hashmap::SortedHashMap;
 use core::panic;
 use log::{debug, info};
-use serde::Serialize;
+use serde::ser::SerializeStruct as _;
+use serde::{Serialize, Serializer};
 use serde_json;
+use serde_json::to_string_pretty;
 use std::collections::hash_map::{Drain, Keys, ValuesMut};
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
-use std::io::BufWriter;
+use std::io::{BufWriter, Write};
 
 /// Public API which provides access to all paths and routes.
 /// Store all OriginAsPaths keyed by origin ASN.
-#[derive(Debug, Serialize, Default)]
+#[derive(Debug, Default)]
 pub struct Paths {
     paths: HashMap<Asn, OriginAsPaths>,
 }
@@ -22,6 +25,19 @@ pub struct Paths {
 impl PartialEq for Paths {
     fn eq(&self, other: &Self) -> bool {
         self.paths == other.paths
+    }
+}
+
+impl Serialize for Paths {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        // Serialize the paths map sorted by the keys (origin ASNs) for deterministic output
+        let sorted_paths = SortedHashMap(&self.paths);
+        let mut state = serializer.serialize_struct("Paths", 1)?;
+        state.serialize_field("paths", &sorted_paths)?;
+        state.end()
     }
 }
 
@@ -111,8 +127,12 @@ impl Paths {
 
     pub fn to_file(&self, filename: &String) {
         ensure_dir(filename);
-        let writer = BufWriter::new(File::create(filename).unwrap());
-        serde_json::to_writer_pretty(writer, self).unwrap();
+        let mut writer = BufWriter::new(File::create(filename).unwrap());
+        writer
+            .write_all(to_string_pretty(self).unwrap().as_bytes())
+            .unwrap_or_else(|_| panic!("Unable to write to file {}", filename));
+
+        // serde_json::to_writer_pretty(writer, self).unwrap();
         info!("Wrote JSON to {}", filename);
     }
 

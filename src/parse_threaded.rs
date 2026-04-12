@@ -9,6 +9,7 @@ use bgpkit_parser::BgpkitParser;
 use log::{debug, info};
 use rayon::ThreadPoolBuilder;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
+use rayon::slice::ParallelSliceMut;
 use std::sync::atomic::AtomicU32;
 use std::sync::{Arc, RwLock};
 
@@ -89,6 +90,9 @@ fn parse_rib_files(rib_files: &Vec<RibFile>, paths: &Arc<RwLock<Paths>>) {
             // +1 to account for record count not being perfectly divisible by num_threads
             let per_thread_len = (total_records / num_threads) + 1;
             let parsed = Arc::new(AtomicU32::new(0));
+            let mut thread_paths = (0..num_threads)
+                .map(|_| Arc::new(RwLock::new(Paths::default())))
+                .collect::<Vec<_>>();
 
             info!(
                 "Going to parse {} records using {} threads, with {} records per thread",
@@ -102,10 +106,8 @@ fn parse_rib_files(rib_files: &Vec<RibFile>, paths: &Arc<RwLock<Paths>>) {
 
                 // Start from 1 to skip peer table
                 let start = 1 + (worker_id * per_thread_len);
-
                 let thread_parser = BgpkitParser::new(fp.as_str())
                     .unwrap_or_else(|_| panic!("Unable to parse {}", fp));
-                let thread_paths = Arc::new(RwLock::new(Paths::default()));
                 let parsed = Arc::clone(&parsed);
 
                 thread_parser
@@ -115,7 +117,7 @@ fn parse_rib_files(rib_files: &Vec<RibFile>, paths: &Arc<RwLock<Paths>>) {
                     .for_each(|mrt_entry| {
                         parse_mrt_entry(RecordData::new(
                             &mrt_entry,
-                            &Arc::clone(&thread_paths),
+                            &Arc::clone(&thread_paths[worker_id]),
                             &peer_table,
                             fp,
                         ));
@@ -125,18 +127,49 @@ fn parse_rib_files(rib_files: &Vec<RibFile>, paths: &Arc<RwLock<Paths>>) {
                         }
                     });
                 info!("Thread {} finished parsing", worker_id);
-
-                // Merge thread_paths into the main paths
-                let mut paths = paths.write().unwrap();
-                let mut thread_paths = thread_paths.write().unwrap();
-                paths.merge_from(&mut thread_paths);
-                info!("Thread {} merged its paths", worker_id);
             });
 
             info!(
                 "Finished parsing {} records",
                 parsed.load(std::sync::atomic::Ordering::SeqCst)
             );
+            info!("Merging {} paths sets...", thread_paths.len());
+
+            // Pairwise merge per-thread paths into the main paths.
+            while thread_paths.len() > 1 {
+                let merged_paths = thread_paths
+                    .par_chunks_mut(2)
+                    .map(|chunk| {
+                        if chunk.len() == 2 {
+                            let first = chunk.first().unwrap();
+                            let second = chunk.get(1).unwrap();
+                            first
+                                .write()
+                                .unwrap()
+                                .merge_from(&mut second.write().unwrap());
+                            info!("Merged two paths sets together");
+                            Arc::clone(first)
+                        } else if chunk.len() == 1 {
+                            info!("Returning single paths set");
+                            Arc::clone(chunk.first().unwrap())
+                        } else {
+                            panic!(
+                                "Unexpected chunk length when merging paths: {}",
+                                chunk.len()
+                            );
+                        }
+                    })
+                    .collect();
+                thread_paths = merged_paths;
+            }
+
+            assert!(thread_paths.len() == 1);
+            info!("Merging into global paths set...");
+            paths
+                .write()
+                .unwrap()
+                .merge_from(&mut thread_paths.pop().unwrap().write().unwrap());
+            info!("Finished merging paths sets");
         } else {
             // If there are multiple files, just parse this file in this thread
             parser.into_record_iter().skip(1).for_each(|mrt_entry| {

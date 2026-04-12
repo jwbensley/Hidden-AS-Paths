@@ -7,7 +7,7 @@ use std::collections::HashSet;
 use std::collections::hash_set::Drain;
 
 /// A set of AS paths which all point to the same origin ASN
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Default)]
 pub struct OriginAsPaths {
     origin: Asn,
     as_paths: HashSet<AsPath>,

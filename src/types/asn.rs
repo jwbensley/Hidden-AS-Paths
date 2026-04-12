@@ -3,7 +3,7 @@ use serde::{Serialize, Serializer};
 use std::fmt;
 
 /// A wrapper around the `Asn` type from `bgpkit_parser` to allow for serialisation to JSON.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Ord, PartialOrd, Default)]
 pub struct Asn(BgpkitAsn);
 
 impl fmt::Display for Asn {

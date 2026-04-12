@@ -77,10 +77,10 @@ pub mod path_filters {
         let filename = format!("{}/diverging_asn_count.json", &args.results_dir);
         write_diverging_asn_count(paths, &filename);
 
-        let filename = format!("{}/has_unknown_community_asns.json", &args.results_dir);
-        filter_with_unknown_community_asns(paths, &_ixp_rs_asns, &filename);
+        // let filename = format!("{}/has_unknown_community_asns.json", &args.results_dir);
+        // filter_with_unknown_community_asns(paths, &_ixp_rs_asns, &filename);
 
-        let filename = format!("{}/only_unknown_community_asns.json", &args.results_dir);
-        filter_only_unknown_community_asns(paths, &_ixp_rs_asns, &filename);
+        // let filename = format!("{}/only_unknown_community_asns.json", &args.results_dir);
+        // filter_only_unknown_community_asns(paths, &_ixp_rs_asns, &filename);
     }
 }
