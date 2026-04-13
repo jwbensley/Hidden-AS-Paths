@@ -14,10 +14,6 @@ python3 -m pip install --upgrade pip
 python3 -m pip install peeringdb django_peeringdb
 
 peeringdb sync
-
-# Test
-$ sqlite3 -json peeringdb.sqlite3 "select asn from peeringdb_network where info_type = 'Route Server' or info_types like '%Route Server%' order by asn desc;" | jq 'map(.[]) | length'
-750
 ```
 
 ```shell

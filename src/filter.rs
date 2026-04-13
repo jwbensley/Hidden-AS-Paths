@@ -68,14 +68,14 @@ pub mod path_filters {
     pub fn filter_results(paths: &mut Paths, args: &CliArgs) {
         ensure_dir(&args.results_dir);
 
-        let filename = format!("{}/ixp_rs_asns.json", &args.results_dir);
-        let _ixp_rs_asns = get_ixp_rs_asns(&args.peeringdb, &filename);
-
         let filename = format!("{}/divergent_paths.json", &args.results_dir);
         filter_paths(paths, &filename);
 
         let filename = format!("{}/diverging_asn_count.json", &args.results_dir);
         write_diverging_asn_count(paths, &filename);
+
+        // let filename = format!("{}/ixp_rs_asns.json", &args.results_dir);
+        // let _ixp_rs_asns = get_ixp_rs_asns(&args.peeringdb, &filename);
 
         // let filename = format!("{}/has_unknown_community_asns.json", &args.results_dir);
         // filter_with_unknown_community_asns(paths, &_ixp_rs_asns, &filename);
