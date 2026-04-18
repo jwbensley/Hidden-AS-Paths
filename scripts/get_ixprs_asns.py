@@ -1,7 +1,7 @@
 #!/usr/bin/env -S uv run --script
 #
 # /// script
-# requires-python = ">=3.12"
+# requires-python = "==3.13"
 # ///
 
 import argparse
@@ -12,7 +12,8 @@ import sqlite3
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Get all IXP RS ASNs from PeeringDB'
+        description="Get all IXP RS ASNs from PeeringDB",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument(
         "--db",
@@ -29,7 +30,7 @@ def main():
     args = parser.parse_args()
 
     # If the database file does not exist, print an error message and exit
-    # Otherwise sqliet3 will create an empty database file and the query will return no results
+    # Otherwise sqlite3 will create an empty database file and the query will return no results
     if not os.path.exists(args.db):
         print(f"Error: Database file '{args.db}' does not exist.")
         return

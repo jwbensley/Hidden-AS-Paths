@@ -1,7 +1,7 @@
 #!/usr/bin/env -S uv run --script
 #
 # /// script
-# requires-python = ">=3.12"
+# requires-python = "==3.13"
 # dependencies = [
 # "orjson==3.11.8",
 # ]
@@ -52,7 +52,8 @@ def get_freq_of_peer_asn(filename: str) -> dict[str, int]:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Print statistics about the divergent AS paths data"
+        description="Print statistics about the divergent AS paths data",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument(
         "--filename",
