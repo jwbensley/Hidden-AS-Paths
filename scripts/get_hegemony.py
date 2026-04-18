@@ -1,31 +1,31 @@
 #!/usr/bin/env -S uv run --script
 #
 # /// script
-# requires-python = ">=3.12"
+# requires-python = "==3.13"
 # dependencies = [
 # "lz4==4.4.5",
-# "orjson==3.11.8",
-# "requests==2.32.5",
+# "requests==2.33.1",
 # ]
 # ///
 
+import requests
 import argparse
 import csv
 import gzip
+import json
 import logging
 import lz4.frame
-import orjson
 import os
-import requests
+import re
 import tempfile
 from collections import defaultdict
 from typing import Any
 
 
-def download_files(timestamp: str, output_path: str) -> list[str]:
+def download_files(timestamp: str) -> list[str]:
     yyyy = timestamp[:4]
-    mm = timestamp[4:6]
-    dd = timestamp[6:8]
+    mm = timestamp[5:7]
+    dd = timestamp[8:10]
 
     downloaded_files: list[str] = []
 
@@ -49,7 +49,8 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Load the AS Hegemony data for a specific day, and merge one day's worth of data into a single JSON file. "
         "The JSON contains all ASNs that are related to the same origin ASN. "
-        "Specify a local file to parse or a date to download the data for."
+        "Specify a local file to parse or a date to download the data for.",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument(
         "--debug",
@@ -62,8 +63,15 @@ def parse_args() -> argparse.Namespace:
     group.add_argument(
         "--timestamp",
         "-t",
-        type=str,
-        help="Date in YYYYMMDD format",
+        type=lambda s: (
+            s
+            if re.fullmatch(r"\d{4}-\d{2}-\d{2}", s)
+            else argparse.ArgumentTypeError(
+                "Timestamp must be in YYYY-MM-DD format"
+            )
+        ),
+        help="Date in YYYY-MM-DD format",
+        default=None,
     )
     group.add_argument(
         "--input",
@@ -119,14 +127,10 @@ def write_to_json(
 ) -> None:
     if compress:
         with gzip.open(output_filename, 'wt', encoding='utf-8') as jsonfile:
-            jsonfile.write(
-                orjson.dumps(data, option=orjson.OPT_INDENT_2).decode('utf-8')
-            )
+            jsonfile.write(json.dumps(data, indent=2))
     else:
         with open(output_filename, 'w', encoding='utf-8') as jsonfile:
-            jsonfile.write(
-                orjson.dumps(data, option=orjson.OPT_INDENT_2).decode('utf-8')
-            )
+            jsonfile.write(json.dumps(data, indent=2))
     logging.info(f"Data written to {output_filename}")
 
 
@@ -134,7 +138,7 @@ def main() -> None:
     args = parse_args()
 
     if args.timestamp:
-        input_files = download_files(args.timestamp, args.output)
+        input_files = download_files(args.timestamp)
     else:
         input_files = [args.input]
 
