@@ -189,6 +189,7 @@ impl OriginAsPaths {
                     continue;
                 }
                 if a.is_divergent_with(b) {
+                    debug!("Adding divergent ASN {}", a.get_diverging_asn(b));
                     diverging_asns.push(a.get_diverging_asn(b).clone());
                 }
             }

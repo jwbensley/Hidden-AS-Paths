@@ -124,6 +124,12 @@ impl AsPath {
             "The origin must be the same to compare AS paths for divergence"
         );
 
+        debug!(
+            "Comparing divergence of AS paths:\n{:?}\n{:?}",
+            self.get_asns(),
+            other.get_asns()
+        );
+
         // Compare the paths up to but excluding the origin, the origin is the same
         let a_path = self.get_asns().split_last().unwrap().1;
         let b_path = other.get_asns().split_last().unwrap().1;
@@ -135,11 +141,12 @@ impl AsPath {
             if let Some(b_pos) = b_pos
                 // The remainder of each path after the shared ASN must be different
                 && a_path[a_pos..] != b_path[b_pos..]
-            // && (a_path.len() - a_pos != b_path.len() - b_pos)
             {
+                debug!("Paths are divergent");
                 return true;
             }
         }
+        debug!("Paths are NOT divergent");
         false
     }
 
