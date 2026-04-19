@@ -57,6 +57,9 @@ def get_asset_asns(
     logging.debug(f"Getting ASNs for AS-SET {asset} from IRRd server at {url}")
 
     rpsl_key = asset.split("::")[-1]
+    if ":" in rpsl_key:
+        rpsl_key = rpsl_key.split(":")[-1]
+
     if rpsl_key.upper().startswith("RS-"):
         logging.warning(f"Set {asset} looks like a route set, skipping")
         return []
@@ -78,11 +81,15 @@ def get_asset_asns(
     assert response.status_code == 200
 
     data = json.loads(response.content)
-    members = [
-        int(member.lstrip("AS"))
-        for irr_response in data["data"]["recursiveSetMembers"]
-        for member in irr_response["members"]
-    ]
+    try:
+        members = [
+            int(member.lstrip("AS"))
+            for irr_response in data["data"]["recursiveSetMembers"]
+            for member in irr_response["members"]
+        ]
+    except Exception as e:
+        logging.error(f"Error parsing response for AS-SET {asset}")
+        raise e
 
     logging.info(f"Found {len(members)} ASNs in AS-SET {asset}")
     return members
@@ -105,7 +112,19 @@ def get_asns_for_assets(
     return member_asns
 
 
-def load_input_asns(input_file: str) -> list[int]:
+def load_aspath_asns(input_file: str) -> list[int]:
+    with open(input_file, "r") as f:
+        data: dict[str, dict[str, Any]] = json.load(f)
+
+    asns: set[int] = set()
+
+    for as_path in data["paths"].keys():
+        asns.update([int(asn) for asn in as_path.split(",")])
+    logging.info(f"Extracted {len(asns)} unique ASNs from AS paths")
+    return list(asns)
+
+
+def load_divergent_asns(input_file: str) -> list[int]:
     with open(input_file, "r") as f:
         data: list[list[int]] = json.load(f)
 
@@ -137,7 +156,7 @@ def parse_args() -> argparse.Namespace:
         "-i",
         type=str,
         help="Path to the input JSON file containing ASNs",
-        default="results/diverging_asn_count.json",
+        required=True,
     )
     parser.add_argument(
         "--output",
@@ -151,6 +170,17 @@ def parse_args() -> argparse.Namespace:
         type=str,
         help="Base URL to the IRRd server to query for AS-SET membership",
         default="https://irrd.as5405.net/",
+    )
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument(
+        "--divergent",
+        action="store_true",
+        help="Input file list is list of divergent ASNs, get ASNs for only those ASes",
+    )
+    group.add_argument(
+        "--aspaths",
+        action="store_true",
+        help="Input file list is list of AS paths, get ASNs for all ASes in those paths",
     )
     setup_logging(parser.parse_args().debug)
     return parser.parse_args()
@@ -176,7 +206,15 @@ def write_json(filename: str, data: dict[Any, Any]) -> None:
 
 def main():
     args = parse_args()
-    asns = load_input_asns(args.input)
+
+    asns = []
+    if args.divergent:
+        logging.info("Input file is list of divergent ASNs")
+        asns = load_divergent_asns(args.input)
+    elif args.aspaths:
+        logging.info("Input file is list of AS paths")
+        asns = load_aspath_asns(args.input)
+
     assets = get_asn_assets(asns, args.db)
     irr_asns = get_asns_for_assets(assets, args.url)
     write_json(args.output, irr_asns)

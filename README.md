@@ -38,8 +38,22 @@ sudo apt install libsqlite3-dev
 ```shell
 cd missing_asns/
 
+cargo build
+export RUST_BACKTRACE=full; cargo test -- --nocapture
+
 cargo build -r
 cd ../
+
+# Yesterday's yyyy-mm-dd
+YMD=$(date "+%Y-%m-%d" --date="yesterday")
+
+# Download MRTs
+./divergent_paths/target/release/hidden-as-paths -t 10 download -y $YMD -p /opt/mrts/$YMD
+
+# Parse MRTs and filter results
+./divergent_paths/target/release/hidden-as-paths -t 10 files -f /opt/mrts/$YMD/*
+
+./python/get_irr_asns.py --input results/as_paths.json --divergent
 ```
 
 ## Divergent AS Paths
@@ -60,12 +74,12 @@ YMD=$(date "+%Y-%m-%d" --date="yesterday")
 ./divergent_paths/target/release/hidden-as-paths -t 10 download -y $YMD -p /opt/mrts/$YMD
 
 # Parse MRTs and filter results
-./divergent_paths/target/release/hidden-as-paths -t 10 file -f /opt/mrts/$YMD/ris.rrc18*
+./divergent_paths/target/release/hidden-as-paths -t 10 files -f /opt/mrts/$YMD/*
 
 # Pull weighting data
 ./python/get_hegemony.py --timestamp $YMD
 ./python/get_ixprs_asns.py
-./python/get_irr_asns.py
+./python/get_irr_asns.py --input results/diverging_asn_count.json --divergent
 
 # Weight paths
 ./python/weight_paths.py
