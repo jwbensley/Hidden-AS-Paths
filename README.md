@@ -9,14 +9,15 @@ Ensure we have a local copy of PeeringDB:
 ```shell
 cd peeringdb/
 
-# Set your PeeringDB API key in config.yaml !!
-
+# Set your PeeringDB API key in config.yaml
 python3 -m venv .venv
 source .venv/bin/activate
 python3 -m pip install --upgrade pip
 python3 -m pip install peeringdb django_peeringdb
 
 peeringdb sync
+
+cd ../
 ```
 
 Install uv and python:
@@ -32,33 +33,40 @@ Install rust dependencies:
 sudo apt install libsqlite3-dev
 ```
 
-## Running
+## Missing ASNs
 
 ```shell
-# Build
+cd missing_asns/
+
 cargo build -r
+cd ../
+```
+
+## Divergent AS Paths
+
+```shell
+cd divergent_paths/
+
+cargo build
+export RUST_BACKTRACE=full; cargo test -- --nocapture
+
+cargo build -r
+cd ../
 
 # Yesterday's yyyy-mm-dd
 YMD=$(date "+%Y-%m-%d" --date="yesterday")
 
 # Download MRTs
-./target/release/hidden-as-paths -t 10 download -y $YMD -p /opt/mrts/$YMD
+./divergent_paths/target/release/hidden-as-paths -t 10 download -y $YMD -p /opt/mrts/$YMD
 
 # Parse MRTs and filter results
-./target/release/hidden-as-paths -t 10 file -f /opt/mrts/$YMD/ris.rrc18*
+./divergent_paths/target/release/hidden-as-paths -t 10 file -f /opt/mrts/$YMD/ris.rrc18*
 
 # Pull weighting data
-./scripts/get_hegemony.py --timestamp $YMD
-./scripts/get_ixprs_asns.py
-./scripts/get_irr_asns.py
+./python/get_hegemony.py --timestamp $YMD
+./python/get_ixprs_asns.py
+./python/get_irr_asns.py
 
 # Weight paths
-./scripts/weight_paths.py
-```
-
-## Testing
-
-```shell
-cargo build
-export RUST_BACKTRACE=full; cargo test -- --nocapture
+./python/weight_paths.py
 ```

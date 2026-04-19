@@ -1,8 +1,15 @@
-mrts/
-peeringdb/.venv
-peeringdb/failed_entries.json
 peeringdb/peeringdb.sqlite3
+peeringdb/failed_entries.json
+mrts/
 results/
+.venv/
+
+divergent_paths/.venv
+divergent_paths/peeringdb/failed_entries.json
+divergent_paths/peeringdb/peeringdb.sqlite3
+divergent_paths/target
+missing_asns/.venv
+missing_asns/target
 
 # Added by cargo
 
