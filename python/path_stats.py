@@ -1,20 +1,17 @@
 #!/usr/bin/env -S uv run --script
 #
 # /// script
-# requires-python = "==3.13"
-# dependencies = [
-# "orjson==3.11.8",
-# ]
+# requires-python = "==3.14"
 # ///
 
 from typing import Any
 import argparse
-import orjson
+import json
 
 
 def get_as_path_count_per_origin(filename: str) -> dict[str, int]:
     with open(filename, "r") as f:
-        data: dict[str, dict[str, dict[str, Any]]] = orjson.loads(f.read())
+        data: dict[str, dict[str, dict[str, Any]]] = json.load(f)
 
     counts: dict[str, int] = {}
 
@@ -25,13 +22,13 @@ def get_as_path_count_per_origin(filename: str) -> dict[str, int]:
         sorted(counts.items(), key=lambda item: item[1], reverse=True)
     )
     print(f"Count of AS paths per origin ASN:")
-    print(orjson.dumps(sorted_counts, option=orjson.OPT_INDENT_2).decode())
+    print(json.dumps(sorted_counts, indent=2))
     return sorted_counts
 
 
 def get_freq_of_peer_asn(filename: str) -> dict[str, int]:
     with open(filename, "r") as f:
-        data: dict[str, Any] = orjson.loads(f.read())
+        data: dict[str, Any] = json.load(f)
 
     counts: dict[str, int] = {}
 
@@ -46,7 +43,7 @@ def get_freq_of_peer_asn(filename: str) -> dict[str, int]:
         sorted(counts.items(), key=lambda item: item[1], reverse=True)
     )
     print(f"Frequency of peer ASN:")
-    print(orjson.dumps(sorted_counts, option=orjson.OPT_INDENT_2).decode())
+    print(json.dumps(sorted_counts, indent=2))
     return sorted_counts
 
 

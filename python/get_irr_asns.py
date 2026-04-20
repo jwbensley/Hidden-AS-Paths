@@ -13,6 +13,11 @@ import logging
 from typing import Any, Optional
 import requests
 import sqlite3
+from globals import TIER1_ASNS, TIER1_ASSETS
+
+
+def build_exclusions(assets: list[str]) -> str:
+    return "\"" + "\", \"".join(assets) + "\""
 
 
 def get_asn_asset(asn: int, db_cursor: sqlite3.Cursor) -> list[str]:
@@ -46,13 +51,19 @@ def get_asn_assets(asns: list[int], db_path: str) -> dict[int, list[str]]:
     db_conn: sqlite3.Connection = sqlite3.connect(db_path)
     db_cursor: sqlite3.Cursor = db_conn.cursor()
     for asn in asns:
+        if asn in TIER1_ASNS:
+            logging.warning(f"Skipping Tier 1 AS{asn}")
+            continue
         assets[asn] = get_asn_asset(asn, db_cursor)
     db_conn.close()
     return assets
 
 
 def get_asset_asns(
-    asset: str, url: str, session: Optional[requests.Session] = None
+    asset: str,
+    asset_exclusions: str,
+    url: str,
+    session: Optional[requests.Session] = None,
 ) -> list[int]:
     logging.debug(f"Getting ASNs for AS-SET {asset} from IRRd server at {url}")
 
@@ -66,7 +77,7 @@ def get_asset_asns(
 
     query = f"""
     query {{
-        recursiveSetMembers(setNames: ["{rpsl_key}"]) {{
+        recursiveSetMembers(setNames: ["{rpsl_key}"], excludeSets: [{asset_exclusions}]) {{
             rpslPk, members
         }}
     }}
@@ -96,7 +107,7 @@ def get_asset_asns(
 
 
 def get_asns_for_assets(
-    asn_assets: dict[int, list[str]], url: str
+    asn_assets: dict[int, list[str]], asset_exclusions: str, url: str
 ) -> dict[int, list[int]]:
     member_asns: dict[int, list[int]] = {}
     session = requests.Session()
@@ -107,7 +118,9 @@ def get_asns_for_assets(
             if not asset:
                 logging.warning(f"Skipping missing AS-SET for ASN {asn}")
                 continue
-            unique_asns.update(get_asset_asns(asset, url, session))
+            unique_asns.update(
+                get_asset_asns(asset, asset_exclusions, url, session)
+            )
         member_asns[asn] = list(unique_asns)
     return member_asns
 
@@ -130,6 +143,14 @@ def load_divergent_asns(input_file: str) -> list[int]:
 
     logging.info(f"Loaded {len(data)} ASNs")
     return [asn for (asn, _) in data]
+
+
+def load_ixp_assets(input_file: str) -> list[str]:
+    with open(input_file, "r") as f:
+        data: list[str] = json.load(f)
+
+    logging.info(f"Loaded {len(data)} IXP AS-SETs")
+    return data
 
 
 def parse_args() -> argparse.Namespace:
@@ -157,6 +178,12 @@ def parse_args() -> argparse.Namespace:
         type=str,
         help="Path to the input JSON file containing ASNs",
         required=True,
+    )
+    parser.add_argument(
+        "--ixp",
+        type=str,
+        help="Path to the input JSON file containing IXP AS-SETs",
+        default="results/ixp_rs_assets.json",
     )
     parser.add_argument(
         "--output",
@@ -216,7 +243,9 @@ def main():
         asns = load_aspath_asns(args.input)
 
     assets = get_asn_assets(asns, args.db)
-    irr_asns = get_asns_for_assets(assets, args.url)
+    ixp_assets = load_ixp_assets(args.ixp)
+    asset_exclusions = build_exclusions(ixp_assets + TIER1_ASSETS)
+    irr_asns = get_asns_for_assets(assets, asset_exclusions, args.url)
     write_json(args.output, irr_asns)
 
 
