@@ -55,7 +55,8 @@ YMD=$(date "+%Y-%m-%d" --date="yesterday")
 ./divergent_paths/target/release/hidden-as-paths -t 10 files -f /opt/mrts/$YMD/*
 
 ./python/get_irr_asns.py --input results/as_paths.json --aspaths
-./python/find_missing_asns.py
+# ./python/find_missing_asns.py
+./find_missing_asns/target/release/find_missing_asns -d
 ```
 
 ## Divergent AS Paths

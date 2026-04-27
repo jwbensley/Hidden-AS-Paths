@@ -52,7 +52,7 @@ fn load_aspaths(filename: &PathBuf) -> AsPaths {
         .iter()
         .map(|(k, v)| (k.clone(), v.clone()))
         .collect::<AsPaths>();
-    debug!("Loaded {} AS paths", paths.len());
+    info!("Loaded {} AS paths", paths.len());
     paths
 }
 
@@ -70,7 +70,7 @@ fn load_irr_asns(filename: &PathBuf) -> IrrAsns {
             )
         })
         .collect();
-    debug!("Loaded IRR ASNs for {} ASNs", result.len());
+    info!("Loaded IRR ASNs for {} ASNs", result.len());
     result
 }
 
@@ -78,7 +78,7 @@ fn load_ixp_rs_asns(filename: &PathBuf) -> HashSet<u32> {
     let content = fs::read_to_string(filename).expect("Failed to read IXP RS ASNs file");
     let data: Vec<u32> = serde_json::from_str(&content).expect("Failed to parse IXP RS ASNs JSON");
     let result: HashSet<u32> = data.into_iter().collect();
-    debug!("Loaded {} IXP RS ASNs", result.len());
+    info!("Loaded {} IXP RS ASNs", result.len());
     result
 }
 
@@ -148,10 +148,15 @@ fn find_missing_asns(
     irr_asns: &IrrAsns,
     ixp_rs_asns: &HashSet<u32>,
 ) -> HashMap<u32, HashMap<String, Value>> {
+    let mut count = 0;
     let mut candidate_paths: HashMap<u32, HashMap<String, Value>> = HashMap::new();
 
     for (as_path, route) in aspaths {
         debug!("Processing AS path: {}", as_path);
+        count += 1;
+        if count % 100000 == 0 {
+            info!("Processed {} AS paths", count);
+        }
 
         let asns: Vec<u32> = as_path
             .split(',')
@@ -194,7 +199,7 @@ fn find_missing_asns(
 
             let community_asns = check_communities(route, &via_peer_asns);
             if !community_asns.is_empty() {
-                info!(
+                debug!(
                     "Adding candidate path: {}. {} -> {} could be via {:?}",
                     as_path, current_asn, next_asn, community_asns
                 );
