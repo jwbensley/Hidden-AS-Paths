@@ -29,12 +29,12 @@ def get_asn_asset(asn: int, db_cursor: sqlite3.Cursor) -> list[str]:
     row = db_cursor.fetchone()
 
     if not row:
-        logging.error(f"No data found for ASN {asn}")
+        logging.debug(f"No data found for ASN {asn}")
         return [""]
     asset: str = row[0]
 
     if not asset:
-        logging.error(f"No AS-SET found for ASN {asn}")
+        logging.debug(f"No AS-SET found for ASN {asn}")
         return [""]
 
     if len(asset.split()) == 1:
@@ -42,7 +42,7 @@ def get_asn_asset(asn: int, db_cursor: sqlite3.Cursor) -> list[str]:
         return [asset.split("::")[-1]]
 
     parts = asset.split()
-    logging.warning(f"AS-SET for ASN {asn} contains multiple parts: {asset}")
+    logging.debug(f"AS-SET for ASN {asn} contains multiple parts: {asset}")
     return [part.split("::")[-1] for part in parts]
 
 
@@ -52,7 +52,7 @@ def get_asn_assets(asns: list[int], db_path: str) -> dict[int, list[str]]:
     db_cursor: sqlite3.Cursor = db_conn.cursor()
     for asn in asns:
         if asn in TIER1_ASNS:
-            logging.warning(f"Skipping Tier 1 AS{asn}")
+            logging.debug(f"Skipping Tier 1 AS{asn}")
             continue
         assets[asn] = get_asn_asset(asn, db_cursor)
     db_conn.close()
@@ -72,7 +72,7 @@ def get_asset_asns(
         rpsl_key = rpsl_key.split(":")[-1]
 
     if rpsl_key.upper().startswith("RS-"):
-        logging.warning(f"Set {asset} looks like a route set, skipping")
+        logging.debug(f"Set {asset} looks like a route set, skipping")
         return []
 
     query = f"""
@@ -102,7 +102,7 @@ def get_asset_asns(
         logging.error(f"Error parsing response for AS-SET {asset}")
         raise e
 
-    logging.info(f"Found {len(members)} ASNs in AS-SET {asset}")
+    logging.debug(f"Found {len(members)} ASNs in AS-SET {asset}")
     return members
 
 
@@ -116,7 +116,7 @@ def get_asns_for_assets(
         unique_asns: set[int] = set()
         for asset in assets:
             if not asset:
-                logging.warning(f"Skipping missing AS-SET for ASN {asn}")
+                logging.debug(f"Skipping missing AS-SET for ASN {asn}")
                 continue
             unique_asns.update(
                 get_asset_asns(asset, asset_exclusions, url, session)

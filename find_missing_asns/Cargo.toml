@@ -1,0 +1,12 @@
+[package]
+name = "find_missing_asns"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+clap = { version = "4.5.54", features = ["derive"] }
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.149"
+log = "0.4.29"
+env_logger = "0.11.8"
+chrono = "0.4"
